@@ -49,47 +49,25 @@ body {
   overflow-y: auto;
 }
 
-/* ---------- 顶部 HUD：关卡名 / 剩余牌数 ---------- */
-#hud {
+/* ---------- 顶部：只放一个图鉴按钮（其余数字全部去掉，画面清爽优先） ---------- */
+#topBar {
   flex: 0 0 auto;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 14px 6px;
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-#hud .hud-item {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-}
-
-#hud .hud-label {
-  color: var(--ink-soft);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-#hud .hud-value {
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  justify-content: flex-end;    /* 按钮靠右 */
+  padding: 8px 12px 2px;
+  /* 按钮再小一点，别抢戏；但可点区域保持够大（hud-btn 自带 min-height） */
 }
 
 /* ---------- 主体 ---------- */
 #app {
-  flex: 0 0 auto;
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 8px 10px;
+  /* justify-content: flex-start：牌堆从上方开始 → 自然落在「比屏幕正中略高」的位置。
+     如果改成 center，牌堆会掉到页面正中偏下，和「略高」的要求相反。 */
+  justify-content: flex-start;
+  padding: 0 8px 6px;
 }
 
 /* ---------- 牌堆区（24×24 虚拟棋盘） ---------- */
@@ -97,7 +75,7 @@ body {
   position: relative;
   width: var(--board);
   height: var(--board);
-  margin: 2px auto 10px;
+  margin: 2px auto 8px;    /* 下面留一点，牌堆整体就偏上 */
   /* 棋盘底纹：格子淡淡的线，帮助看清「谁压着谁」都落在格线上 */
   background-image:
     linear-gradient(to right, rgba(120, 105, 80, 0.10) 1px, transparent 1px),
@@ -108,6 +86,34 @@ body {
   border-radius: 10px;
   /* 牌最多只占 24 格，这里裁掉描边溢出的一点点，保证页面绝对不出现横向滚动条 */
   overflow: hidden;
+}
+
+/* ---------- 牌堆和按钮之间的空隙：「三消」标识 ---------- */
+#subtitle {
+  flex: 0 1 auto;                /* 不抢空间，空出来的高度交给下面的卡槽区 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 4px 0 6px;
+  min-height: 36px;
+}
+
+#subtitle .subtitle-main {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.34em;        /* 两个字的标题，拉开一点更稳 */
+  text-indent: 0.34em;           /* 补掉末字多出来的字距，保持视觉居中 */
+  color: #6b5b42;
+}
+
+#subtitle .subtitle-sub {
+  margin: 0;
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
 }
 
 /* ---------- 一张牌 ---------- */
@@ -212,9 +218,11 @@ body {
 
 /* ---------- 卡槽区：7 格 ---------- */
 #slotsBar {
-  flex: 0 0 auto;
+  flex: 1 1 auto;                /* 吃掉剩余高度，内容居中 → 上下留白自然均衡 */
   width: 100%;
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   padding: 6px 0 4px;
 }
@@ -329,9 +337,10 @@ body {
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
-  color: #6b5b42;
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid var(--line);
+  color: #5a4a33;
+  background: #fdf8ee;              /* 不透明，否则和米色背景糊在一起看不见 */
+  border: 1px solid rgba(140, 118, 86, 0.55);
+  box-shadow: 0 1px 3px rgba(90, 74, 51, 0.14);
   border-radius: 999px;
   cursor: pointer;
   touch-action: manipulation;
@@ -556,15 +565,19 @@ body {
   white-space: pre-wrap;        /* 让「出处」那段换行生效 */
 }
 
-/* ---------- 屏幕特别矮的情况（比如手机横屏）：把卡槽缩小，给牌堆让出高度 ---------- */
+/* ---------- 屏幕特别矮的情况（比如手机横屏）：把卡槽和「三消」那行压缩，给牌堆让出高度 ---------- */
 @media (max-height: 640px) {
+  #topBar { padding: 4px 12px 0; }
   #slotsBar { padding: 3px 0; }
-  #hud { padding: 5px 12px 3px; }
-  #footer { padding: 5px 0 2px; }
+  #footer { padding: 4px 0 2px; }
+  #subtitle { padding: 2px 0 4px; min-height: 28px; }
+  #subtitle .subtitle-main { font-size: 14px; }
+  #subtitle .subtitle-sub { display: none; }   /* 太矮就不显示副标题 */
+  #stage { margin-bottom: 12px; }
 }
 
 /* ---------- 屏幕很窄：字号再收一点 ---------- */
 @media (max-width: 340px) {
-  #hud .hud-value { font-size: 14px; }
   .btn { min-width: 118px; padding: 10px 16px; font-size: 15px; }
+  #subtitle .subtitle-sub { font-size: 11px; }
 }

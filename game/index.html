@@ -11,24 +11,12 @@
 </head>
 <body>
 
-  <!-- 顶部：关卡名 / 剩余牌数 / 复活机会 + 图鉴入口 -->
-  <header id="hud">
-    <div class="hud-item">
-      <span class="hud-label">关卡</span>
-      <span class="hud-value" id="levelName">—</span>
-    </div>
-    <div class="hud-item">
-      <span class="hud-label">剩余牌数</span>
-      <span class="hud-value" id="remainCount">0</span>
-    </div>
-    <div class="hud-item">
-      <span class="hud-label">复活</span>
-      <span class="hud-value" id="reviveCount">0</span>
-    </div>
+  <!-- 顶部只留一个图鉴按钮（关卡名/剩余张数/复活次数这些数字全部去掉，画面清爽优先） -->
+  <div id="topBar">
     <button type="button" id="codexBtn" class="hud-btn" title="西迁行囊图鉴">
       图鉴 <span id="codexCount">0/10</span>
     </button>
-  </header>
+  </div>
 
   <main id="app">
     <!-- 牌堆区：24×24 虚拟棋盘，每张牌是一个绝对定位的 DOM 节点 -->
@@ -37,6 +25,12 @@
     <!-- 下方卡槽：按关卡配置的格子数（默认 7），按点击顺序从左往右排 -->
     <div id="slotsBar">
       <div id="slots" aria-label="卡槽"></div>
+    </div>
+
+    <!-- 牌堆和按钮之间的空隙：放「三消」标识 -->
+    <div id="subtitle">
+      <p class="subtitle-main">三消</p>
+      <p class="subtitle-sub">把散落的行囊，一件件收好</p>
     </div>
 
     <!-- 底部按钮 -->

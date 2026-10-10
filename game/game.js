@@ -1672,14 +1672,16 @@
 
     const availW = Math.min(window.innerWidth, document.documentElement.clientWidth) - 16;
 
-    // 高度也要留够：头部 + 牌堆 + 格子 + 按钮
-    const headerEl = document.getElementById('hud');
+    // 高度也要留够：顶部按钮行 + 牌堆 + 底栏 + 「三消」那行 + 按钮
+    const topEl = document.getElementById('topBar');
     const barEl = document.getElementById('slotsBar');
+    const subEl = document.getElementById('subtitle');
     const footerEl = document.getElementById('footer');
-    const hHeader = headerEl ? headerEl.offsetHeight : 40;
+    const hTop = topEl ? topEl.offsetHeight : 40;
     const hBar = barEl ? barEl.offsetHeight : 96;
+    const hSub = subEl ? subEl.offsetHeight : 56;
     const hFooter = footerEl ? footerEl.offsetHeight : 56;
-    const availH = Math.max(220, window.innerHeight - hHeader - hBar - hFooter - 40);
+    const availH = Math.max(220, window.innerHeight - hTop - hBar - hSub - hFooter - 24);
 
     // 一格多少像素：宽高都放得下才不出现滚动条
     const cell = Math.max(12, Math.floor(Math.min(availW / BOARD_CELLS, availH / BOARD_CELLS)));
@@ -1842,7 +1844,8 @@
 
   function updateHud() {
     if (!hasDom) return;
-    if (levelNameEl) levelNameEl.textContent = game.level.name;
+    // 关卡名不在页面上显示了（布局简化），只在控制台留个记录
+    logStatus('本关：' + game.level.name);
     if (remainEl) remainEl.textContent = String(game.board.length);
     updateReviveHud();
   }
