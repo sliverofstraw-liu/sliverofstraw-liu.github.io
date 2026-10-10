@@ -1665,6 +1665,62 @@
    * 十、渲染层（DOM + CSS 定位）
    * ========================================================================*/
 
+  /* --------------------------------------------------------------------------
+   * 量出「真实能用的视口高度」，写进 CSS 变量 --vh。
+   * 为什么非要自己量：手机自带浏览器和 QQ/微信内置 WebView 对「视口高度」的
+   * 上报值能差几十像素。页面布局里凡是靠高度撑开的地方（比如 body 的最小高度），
+   * 都会因为这个差值把「重新开始」按钮推到不同位置 —— 一个贴着小字、一个掉到底部。
+   *
+   * 做法：
+   *   ① 优先用 visualViewport.height（真正可见的那块）；
+   *   ② 每次尺寸变化后重新采样一小段时间，取其中的【最大值】：
+   *      浏览器工具栏收起后的高度才是真正可用的高度，
+   *      工具栏还占地方时量到的偏小值会被自动忽略。
+   *   注意每次采样都要清零，不能沿用上一次的读数 ——
+   *   横竖屏切换时高度会变小，沿用旧值会算出虚高的布局。
+   * ------------------------------------------------------------------------ */
+  let vhPeak = 0;         // 本轮采样里的最大值（拿去做布局的就是它）
+  let vhSampling = false;
+
+  function rawViewportHeight() {
+    if (!hasDom) return 0;
+    let h = 0;
+    if (window.visualViewport && window.visualViewport.height) {
+      h = window.visualViewport.height;
+    }
+    if (!h) h = window.innerHeight || document.documentElement.clientHeight || 0;
+    return h;
+  }
+
+  function takeHeightSample() {
+    const h = rawViewportHeight();
+    if (h > vhPeak) vhPeak = h;
+    if (vhPeak > 0) document.documentElement.style.setProperty('--vh', vhPeak + 'px');
+    return vhPeak;
+  }
+
+  // 重新采样：先把上一轮读数清零，再在接下来几百毫秒里挑最大的那个
+  function sampleViewportHeight() {
+    if (!hasDom) return;
+    vhPeak = 0;
+    takeHeightSample();
+    if (vhSampling) return;
+    vhSampling = true;
+    const started = Date.now();
+    const step = function () {
+      takeHeightSample();
+      if (Date.now() - started < 500) {
+        if (window.requestAnimationFrame) requestAnimationFrame(step);
+        else setTimeout(step, 60);
+      } else {
+        vhSampling = false;
+        applySize();          // 采样结束，用最终的高度重新排一次
+      }
+    };
+    if (window.requestAnimationFrame) requestAnimationFrame(step);
+    else setTimeout(step, 60);
+  }
+
   // 根据视口大小算出一格多少像素，写进 CSS 变量，保证不出现横向滚动条
   function applySize() {
     if (!hasDom) return;
@@ -1672,19 +1728,26 @@
 
     const availW = Math.min(window.innerWidth, document.documentElement.clientWidth) - 16;
 
-    // 高度也要留够：顶部按钮行 + 牌堆 + 底栏 + 「三消」那行 + 按钮
+    // 高度也要留够：顶部按钮行 + 牌堆 + 底栏 + 主题小字 + 按钮
     const topEl = document.getElementById('topBar');
     const barEl = document.getElementById('slotsBar');
     const subEl = document.getElementById('subtitle');
     const footerEl = document.getElementById('footer');
     const hTop = topEl ? topEl.offsetHeight : 40;
     const hBar = barEl ? barEl.offsetHeight : 96;
-    const hSub = subEl ? subEl.offsetHeight : 56;
-    const hFooter = footerEl ? footerEl.offsetHeight : 56;
-    const availH = Math.max(220, window.innerHeight - hTop - hBar - hSub - hFooter - 24);
+    const hSub = subEl ? subEl.offsetHeight : 28;
+    const hFooter = footerEl ? footerEl.offsetHeight : 62;
+    const vh = vhPeak || window.innerHeight || 800;
+    const availH = Math.max(220, vh - hTop - hBar - hSub - hFooter - 10);
 
-    // 一格多少像素：宽高都放得下才不出现滚动条
-    const cell = Math.max(12, Math.floor(Math.min(availW / BOARD_CELLS, availH / BOARD_CELLS)));
+    /* 一格多少像素：宽和高都要放得下。
+     * 关键点：正常情况下【宽度】是那个更紧的限制（棋盘和屏幕一样宽），
+     * 于是牌堆尺寸只取决于屏幕宽度 —— 而各个浏览器报的宽度是一样的，
+     * 从根子上避免了「换个浏览器牌堆就变大变小」。
+     * 只有当屏幕特别矮时，高度才会成为限制，那时才按高度缩。 */
+    const cellByWidth = (availW - 2) / BOARD_CELLS;
+    const cellByHeight = availH / BOARD_CELLS;
+    const cell = Math.max(10, Math.floor(Math.min(cellByWidth, cellByHeight)));
     const boardPx = cell * BOARD_CELLS;
 
     const root = document.documentElement;
@@ -2211,11 +2274,14 @@
    * 十六、启动（只在浏览器里跑；node 里 require 时不会执行，方便做算法自检）
    * ========================================================================*/
   function init() {
+    // 先量一次真实视口高度（并连量几帧取最大值），再据此算格子大小
+    sampleViewportHeight();
     applySize();
     startRound(0);
 
     // 窗口大小变化（含手机横竖屏切换）→ 重新算格子大小
     window.addEventListener('resize', function () {
+      sampleViewportHeight();
       applySize();
       // 位置都是格坐标算出来的，尺寸一变只重新摆一下就行
       for (let i = 0; i < game.board.length; i++) {
@@ -2224,6 +2290,13 @@
       }
       updateSlots();
     });
+    // 有些浏览器（尤其内置 WebView）改变可视区时只触发 visualViewport 的 resize
+    if (window.visualViewport && window.visualViewport.addEventListener) {
+      window.visualViewport.addEventListener('resize', function () {
+        sampleViewportHeight();
+        applySize();
+      });
+    }
     window.addEventListener('orientationchange', function () {
       setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 200);
     });

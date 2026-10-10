@@ -10,6 +10,10 @@
 
 /* ---------- 全局变量：--cell / --board / --slot 由 game.js 在运行时按屏幕算好 ---------- */
 :root {
+  /* --vh 由 game.js 写入「真实可见高度」。
+     单独开一个变量是为了绕开各浏览器 100vh 口径不一致的老问题 ——
+     手机自带浏览器和 QQ/微信内置 WebView 上报的视口高度能差几十像素。 */
+  --vh: 100vh;
   --cell: 16px;                      /* 一个虚拟格子的边长（运行时覆盖） */
   --board: 384px;                    /* 棋盘总边长 = cell × 24 */
   --slot: 16px;                      /* 卡槽里一格的边长 */
@@ -31,6 +35,9 @@
 html, body {
   margin: 0;
   padding: 0;
+}
+
+html {
   height: 100%;
 }
 
@@ -44,7 +51,10 @@ body {
   -webkit-tap-highlight-color: transparent;
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  /* 用「真实可见高度」，不用 100%（各浏览器口径不一，QQ 内置浏览器尤其明显） */
+  min-height: var(--vh, 100vh);
+  /* 底部给手机「小白条」和内置浏览器工具栏留安全距离 */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   /* 允许纵向滚动（屏幕特别矮时），但不会横向滚 */
   overflow-y: auto;
 }
@@ -60,7 +70,12 @@ body {
 
 /* ---------- 主体 ---------- */
 #app {
-  flex: 1 0 auto;
+  /* 关键：flex 不伸缩（0 0 auto）。
+     之前是 1 0 auto —— 它会吃掉 body 的剩余高度，把底部按钮顶到屏幕最下面。
+     而各浏览器上报的视口高度不一样，"剩余高度"也就不一样，
+     于是「重新开始」在手机浏览器里贴着小字、在 QQ 内置浏览器里掉到底部。
+     现在整条内容按自然高度排下来，底部多出来的空间留给 body，谁都不抢。 */
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
