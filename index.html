@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<title>探路页 · 电气2615</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:#0e1116;color:#e8edf3;
+  font:400 16px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:32px 24px calc(32px + env(safe-area-inset-bottom));
+  text-align:center;-webkit-text-size-adjust:100%;
+}
+.mark{
+  width:72px;height:72px;border-radius:50%;border:2px solid #2ea043;
+  display:flex;align-items:center;justify-content:center;margin-bottom:22px;
+}
+.mark svg{width:34px;height:34px}
+h1{font-size:30px;font-weight:500;letter-spacing:.02em}
+.sub{font-size:14px;color:#8b949e;margin-top:6px}
+.card{
+  margin-top:30px;width:100%;max-width:340px;
+  border:1px solid #21262d;border-radius:14px;background:#151a21;
+  padding:14px 20px;text-align:left;
+}
+.row{display:flex;justify-content:space-between;gap:14px;padding:8px 0}
+.row + .row{border-top:1px solid #1d2229}
+.k{font-size:13px;color:#8b949e;flex:none}
+.v{font-size:13px;text-align:right;word-break:break-all}
+.v.hi{color:#3fb950;font-weight:500}
+.note{margin-top:26px;font-size:13px;color:#8b949e;max-width:340px;line-height:1.7}
+.ua{margin-top:20px;font-size:11px;color:#4d545e;word-break:break-all;max-width:340px}
+</style>
+</head>
+<body>
+  <div class="mark">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#3fb950" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.2 5L20 6.5"/></svg>
+  </div>
+  <h1>路通了</h1>
+  <div class="sub">电气2615 · 最佳团日探路页</div>
+
+  <div class="card">
+    <div class="row"><span class="k">打开环境</span><span class="v hi" id="env">识别中…</span></div>
+    <div class="row"><span class="k">打开时间</span><span class="v" id="time">—</span></div>
+    <div class="row"><span class="k">页面来源</span><span class="v" id="host">—</span></div>
+  </div>
+
+  <p class="note">你能看到这一页，就说明这条链接在你当前这种打开方式下是通的。请顺手截个图发回群里。</p>
+  <div class="ua" id="ua"></div>
+
+<script>
+(function () {
+  var ua = navigator.userAgent || "";
+  var env = "手机 / 电脑浏览器";
+  if (/MicroMessenger/i.test(ua)) env = "微信内置浏览器";
+  else if (/\bQQ\//i.test(ua) || /MQQBrowser/i.test(ua)) env = "QQ 内置浏览器";
+  else if (/Alipay/i.test(ua)) env = "支付宝内置浏览器";
+  else if (/Weibo/i.test(ua)) env = "微博内置浏览器";
+
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  var d = new Date();
+  var t = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+          " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+
+  document.getElementById("env").textContent = env;
+  document.getElementById("time").textContent = t;
+  document.getElementById("host").textContent = location.host || "(本地文件打开)";
+  document.getElementById("ua").textContent = ua;
+})();
+</script>
+</body>
+</html>
