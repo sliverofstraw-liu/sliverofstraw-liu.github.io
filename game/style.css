@@ -88,32 +88,22 @@ body {
   overflow: hidden;
 }
 
-/* ---------- 牌堆和按钮之间的空隙：「三消」标识 ---------- */
+/* ---------- 牌堆和按钮之间的空隙：放一句主题小字 ---------- */
+/* 小字只占自己那点高度，紧跟在卡槽下面（不抢剩余空间）。
+   剩余高度全部留给底部按钮区 → 按钮稳在屏幕底部，小字也就贴近牌堆了。 */
 #subtitle {
-  flex: 0 1 auto;                /* 不抢空间，空出来的高度交给下面的卡槽区 */
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 4px 0 6px;
-  min-height: 36px;
-}
-
-#subtitle .subtitle-main {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.34em;        /* 两个字的标题，拉开一点更稳 */
-  text-indent: 0.34em;           /* 补掉末字多出来的字距，保持视觉居中 */
-  color: #6b5b42;
+  padding: 6px 0 0;
 }
 
 #subtitle .subtitle-sub {
   margin: 0;
-  font-size: 11.5px;
-  letter-spacing: 0.06em;
-  color: var(--ink-soft);
+  font-size: 14px;
+  letter-spacing: 0.10em;
+  color: #7a6a52;
 }
 
 /* ---------- 一张牌 ---------- */
@@ -218,7 +208,7 @@ body {
 
 /* ---------- 卡槽区：7 格 ---------- */
 #slotsBar {
-  flex: 1 1 auto;                /* 吃掉剩余高度，内容居中 → 上下留白自然均衡 */
+  flex: 0 0 auto;                /* 只占自己那点高度，剩余高度交给下面的小字区 */
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -255,8 +245,12 @@ body {
 
 /* ---------- 底部按钮 ---------- */
 #footer {
-  flex: 0 0 auto;
-  padding: 8px 0 4px;
+  flex: 1 1 auto;                 /* 吃掉剩余高度，按钮再靠下摆 → 稳在屏幕底部 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 8px 0 10px;
 }
 
 .btn {
@@ -302,6 +296,7 @@ body {
 }
 
 .modal-card {
+  position: relative;              /* 右上角叉号的定位基准 */
   width: 100%;
   max-width: 320px;
   background: #fffdf8;
@@ -443,21 +438,56 @@ body {
 }
 .quiz-result.show { display: block; }
 
-/* ---------- 图鉴 ---------- */
+/* ---------- 图鉴：右上角叉号关闭，整页不可滚动 ---------- */
+
+/* 右上角的叉：绝对定位在卡片右上角，比底部按钮更省地方 */
+.modal-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-family: inherit;
+  font-size: 22px;
+  line-height: 1;
+  color: #8a7d69;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.modal-close:active {
+  background: rgba(120, 105, 80, 0.12);
+}
+
 .codex-card {
-  max-width: 380px;
-  max-height: 84vh;
-  overflow-y: auto;
+  position: relative;              /* 给右上角叉号做定位基准 */
+  max-width: 360px;
+  max-height: 90vh;
+  /* 关键：整页不滚动。内容靠缩小排版塞进一屏，而不是让玩家上下滑 */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 .codex-sub {
   margin: -4px 0 12px !important;
   font-size: 12px;
 }
 .codex-grid {
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: min-content;
   gap: 9px;
-  margin: 0 0 16px;
+  margin: 0;
+  overflow: hidden;                /* 不放滚动条 */
+  align-content: start;
 }
 .codex-cell {
   display: flex;
@@ -516,9 +546,10 @@ body {
 
 /* ---------- 单个物品详情 ---------- */
 .detail-card {
+  position: relative;              /* 同样用右上角叉号关闭 */
   max-width: 340px;
   max-height: 86vh;
-  overflow-y: auto;
+  overflow-y: auto;                /* 详情文字可能长，这一层允许滚动 */
 }
 .detail-pic {
   margin: 0 auto 12px;
@@ -565,19 +596,21 @@ body {
   white-space: pre-wrap;        /* 让「出处」那段换行生效 */
 }
 
-/* ---------- 屏幕特别矮的情况（比如手机横屏）：把卡槽和「三消」那行压缩，给牌堆让出高度 ---------- */
+/* ---------- 屏幕特别矮的情况（比如手机横屏）：把卡槽和文字行压缩，给牌堆让出高度 ---------- */
 @media (max-height: 640px) {
   #topBar { padding: 4px 12px 0; }
   #slotsBar { padding: 3px 0; }
   #footer { padding: 4px 0 2px; }
-  #subtitle { padding: 2px 0 4px; min-height: 28px; }
-  #subtitle .subtitle-main { font-size: 14px; }
-  #subtitle .subtitle-sub { display: none; }   /* 太矮就不显示副标题 */
-  #stage { margin-bottom: 12px; }
+  #subtitle { padding: 2px 0 4px; min-height: 24px; }
+  #subtitle .subtitle-sub { display: none; }   /* 太矮就不显示这行小字 */
+  #stage { margin-bottom: 6px; }
+  /* 图鉴：格子缩小，保证一屏放得下、不用滚 */
+  .codex-grid { gap: 6px; }
+  .codex-card { max-height: 94vh; }
 }
 
 /* ---------- 屏幕很窄：字号再收一点 ---------- */
 @media (max-width: 340px) {
   .btn { min-width: 118px; padding: 10px 16px; font-size: 15px; }
-  #subtitle .subtitle-sub { font-size: 11px; }
+  #subtitle .subtitle-sub { font-size: 12.5px; }
 }

@@ -27,9 +27,8 @@
       <div id="slots" aria-label="卡槽"></div>
     </div>
 
-    <!-- 牌堆和按钮之间的空隙：放「三消」标识 -->
+    <!-- 牌堆和按钮之间的空隙：放一句主题小字 -->
     <div id="subtitle">
-      <p class="subtitle-main">三消</p>
       <p class="subtitle-sub">把散落的行囊，一件件收好</p>
     </div>
 
@@ -63,23 +62,24 @@
   </div>
 
   <!-- ============ 图鉴：全部物品（图片 + 名称 + 是否已解锁） ============ -->
+  <!-- 用「右上角叉号」关闭，底部不放按钮；整页不可滚动（内容一屏放得下） -->
   <div id="codexModal" class="modal" role="dialog" aria-modal="true">
     <div class="modal-card codex-card">
+      <button type="button" id="codexCloseBtn" class="modal-close" aria-label="关闭图鉴">×</button>
       <h2>西迁行囊图鉴</h2>
       <p class="codex-sub" id="codexSub">消除 3 张相同物品，即可解锁它的故事</p>
       <div id="codexGrid" class="codex-grid"></div>
-      <button type="button" id="codexCloseBtn" class="btn btn-primary">关掉图鉴</button>
     </div>
   </div>
 
   <!-- ============ 单个物品详情：图片 + 知识点 + 详细介绍 ============ -->
   <div id="detailModal" class="modal" role="dialog" aria-modal="true">
     <div class="modal-card detail-card">
+      <button type="button" id="detailCloseBtn" class="modal-close" aria-label="关闭">×</button>
       <div id="detailPic" class="detail-pic"></div>
       <h2 id="detailTitle">物品</h2>
       <p id="detailKnowledge" class="detail-knowledge"></p>
       <p id="detailBody" class="detail-body"></p>
-      <button type="button" id="detailCloseBtn" class="btn btn-primary">返回图鉴</button>
     </div>
   </div>
 
