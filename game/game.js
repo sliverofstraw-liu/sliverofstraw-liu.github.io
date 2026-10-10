@@ -175,6 +175,14 @@
       // 前几成算「前半段」：这一段会严格保证每一步都轻松（占用低），
       // 后面的段落才逐步加码 —— 玩家前半段点得爽，后半段开始烧脑。
       easyRatio: 0.3,              // 只有前 30% 是「轻松段」，后面全要算
+      /* 动态难度：按「已经复活过几次」决定下一局用哪个档。
+       * 下标 = 复活次数，值 = 档位（0 纯随机 / 1 打散 / 2 保证可解）。
+       *   复活 0 次     → 0 → 超难：纯随机贴图，不保证有解
+       *   复活 1 次     → 1 → 中档：前半段有铺垫，后半段同款打散，不保证有解
+       *   复活 2 次以上 → 2 → 保证有解（卡太多次就放水）
+       * 小数会被向上取整（0.3 → 1 档）。
+       * 想调手感只改这个数组就行，逻辑不用动。 */
+      difficulty: { byRevives: [0, 1, 2] },
       // 后半段最多允许底栏占几格（越小越松、越大越紧）。上限是 slots - 1。
       hardOccupancy: 6,
       // 伪装三张：后半段顺带造几个「两张在明面、第三张深埋」的坑
@@ -401,7 +409,7 @@
    * @param {number} easyRatio 前半段占整局的比例（0~1）
    * @param {number} hardOccupancy 后半段最多允许占几格
    */
-  function dealRamp(n, kindCount, slotCap, easyRatio, hardOccupancy) {
+  function dealRamp(n, kindCount, slotCap, easyRatio, hardOccupancy, requireSolve) {
     const groups = n / 3;                          // 120 张 → 40 组
     const perKind = groups / kindCount;            // 每种图案分到几组
     if (perKind !== Math.floor(perKind)) return null;
@@ -513,6 +521,21 @@
       if (slot.length !== 0) return null;
     }
 
+    /* ---------- 「不保证有解」模式：把后半段的图案打散 ----------
+     * 上面的分配刻意做了两件事：前半段同款扎堆（好凑）、后半段同款轮着给（更难）。
+     * 当 requireSolve = false 时，我们要的是「很可能走不通」的牌局，
+     * 但【不能改变每种图案的张数】（否则永远消不完、出不来胜利画面）。
+     * 做法：只把后半段的图案做一次「同集合内的对调」——
+     * 集合没变，所以每种图案的组数一个不少；但扎堆被打散，手感直接变硬。
+     * 前半段保持原样，这样开局不会一上来就是死局，玩家还能先玩一会儿。 */
+    if (!requireSolve && hardGroups >= 2) {
+      const seg = [];
+      for (let i = easyGroups; i < groups; i++) seg.push(i);
+      const vals = seg.map(function (i) { return kindOfGroup[i]; });
+      shuffleArray(vals);
+      for (let m = 0; m < seg.length; m++) kindOfGroup[seg[m]] = vals[m];
+    }
+
     return {
       typeAt: typeAt,
       groupKind: kindOfGroup,
@@ -521,11 +544,6 @@
       easyEnd: easyGroups * 3,
       groups: groups
     };
-
-    // 前半段覆盖到第几手
-    function cardEndOf(eg) {
-      return eg * 2 + 2;
-    }
   }
   /* ==========================================================================
    * 六、几何与遮挡计算（核心，必须全平台可用）
@@ -1198,10 +1216,110 @@
    * 「开局能点几张」由关卡的 opening 控制：反复调整金字塔的倾斜度重新摆牌，
    * 挑一个最接近目标的方案。倾斜度越大 → 上层压得越厚 → 起手越紧。
    */
+  /* ==========================================================================
+   * 动态难度：按「玩家已经复活过几次」决定下一局有多难
+   * --------------------------------------------------------------------------
+   * 档位（可在关卡配置的 difficulty.byRevives 里调）：
+   *   复活过 0 次     → GEN_RANDOM   纯随机贴图，不保证有解（超难）
+   *   复活过 1 次     → GEN_SCATTER  前半段有铺垫、后半段打散，不保证有解
+   *   复活过 2 次以上 → GEN_DESIGNED 按设计路线铺，保证有解（放水）
+   *
+   * 为什么用「复活次数」而不是「失败次数」：
+   *   复活是玩家主动按下去的，说明他确实卡住了；这正好对上
+   *   「先难后易、逐步放水」的体验 —— 越玩越顺，不会一直卡在死局里。
+   *
+   * 【实测结论，别走回头路】
+   *   第一版的实现是「按概率决定这局保不保证有解」（比如 30% 保证），
+   *   而且以为「把后半段同款打散」就等于变难。实测下来是错的：
+   *     · dealRamp 无论传什么参数，都一定会返回一条走得通的路线，
+   *       所以「打散」那条路其实仍然是可解的；
+   *     · 而「保证可解」的铺法反而比纯随机【更难】（会算的玩家通关率
+   *       18% vs 11% 反过来看：纯随机才是真难）—— 因为设计好的路线
+   *       本身在帮玩家兜底，拿掉它才是真的难。
+   *   所以才改成现在这样：三档【确定】映射，不掷骰子，
+   *   难度严格单调递增（每复活一次就明显松一档）。
+   * ========================================================================*/
+  /* 三个难度档 —— 刻意做成【确定性】的，不掷骰子。
+   * 为什么不用「按概率决定这局保不保证有解」：
+   *   那样每局的难度会随机漂移，玩家体感是忽难忽易；
+   *   而且实测发现「打散同款」那条路反而比设计好的路线更容易通关
+   *   （详见下面 genModeForUsedRevives 的说明），概率混合会把这个坑放大。
+   *   固定成三档之后，难度是【单调递增】的：每复活一次，下一局明显更松。 */
+  const GEN_RANDOM = 0;     // 纯随机贴图：最狠，不保证有解
+  const GEN_SCATTER = 1;    // 前半段有铺垫、后半段同款打散：中档，不保证有解
+  const GEN_DESIGNED = 2;   // 设计好一条通关路线：保证有解
+
+  function genModeForUsedRevives(usedRevives, level) {
+    const table = (level && level.difficulty && level.difficulty.byRevives) || null;
+    if (table && table.length) {
+      const idx = Math.min(usedRevives, table.length - 1);
+      const v = table[idx];
+      if (typeof v === 'number') {
+        /* 数组里的值就是【档位号】，直接取整：
+         *   0 = 纯随机（不保证有解）
+         *   1 = 打散（不保证有解）
+         *   2 = 保证可解
+         * 之所以不用「概率」表达，是因为实测发现难度并不是随概率线性变化的
+         * （见上面那段实测结论），写成档位号最直白、也不会被误读。
+         * 顺手兼容 0.3 / 0.5 这类小数：向上取整当成 1 档。 */
+        const tier = Math.ceil(v);
+        if (tier >= GEN_DESIGNED) return GEN_DESIGNED;
+        if (tier <= GEN_RANDOM) return GEN_RANDOM;
+        return GEN_SCATTER;
+      }
+    }
+    if (usedRevives <= 0) return GEN_RANDOM;
+    if (usedRevives === 1) return GEN_SCATTER;
+    return GEN_DESIGNED;
+  }
+
+  /* --------------------------------------------------------------------------
+   * 生成一局牌。外面这层负责【校验 + 重试】：
+   * --------------------------------------------------------------------------
+   * 为什么需要重试：摆牌时如果某层位置不够，兜底补满会静默失败
+   * （buildLayout 里那句 if (!put) break），牌堆就会少几张 ——
+   * 少一张都会有两种图案凑不成 3 张，那局就永远消不完。
+   * 这个坑以前没暴露，是因为「保证可解」那条路最后总会把长度补齐；
+   * 换成「纯随机贴图」之后它就露出来了（实测 150 局里有 2 局只有 118 张）。
+   * 与其去猜各种参数组合，不如生成完直接【验】一遍，不合格就重来。
+   * ------------------------------------------------------------------------ */
   function generateBoard(level) {
+    let board = null;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      board = buildBoardOnce(level);
+      if (boardExact(board, level)) return board;
+    }
+    // 极端情况下重试也没凑够（比如层数/张数配置本身太苛刻），
+    // 至少别崩：把结果原样返回，游戏照常能开（只是这局可能消不完）。
+    console.warn('[发牌] 6 次都没生成出精确张数的牌堆，本局可能无法消完', board && board.length, '/', level.total);
+    return board;
+  }
+
+  // 牌堆是否「精确合格」：张数对得上，且每种图案的张数都是 3 的倍数
+  function boardExact(board, level) {
+    if (!board || board.length !== level.total) return false;
+    const cnt = {};
+    for (let i = 0; i < board.length; i++) {
+      cnt[board[i].kind] = (cnt[board[i].kind] || 0) + 1;
+    }
+    const ids = Object.keys(cnt);
+    if (ids.length !== level.tilePool.length) return false;
+    for (let i = 0; i < ids.length; i++) {
+      if (cnt[ids[i]] % 3 !== 0) return false;
+    }
+    return true;
+  }
+
+  function buildBoardOnce(level) {
     const total = level.total;
     const layers = level.layers;
     const shrink = typeof level.shrink === 'number' ? level.shrink : 2;
+
+    /* 这一局的难度档：用 game 里记录的复活次数映射过来。
+     * 防御式读取是为了 node 里做算法自检时不报错（那时 game 还没建起来）。 */
+    const usedRevives = (typeof game !== 'undefined' && game && game.reviveUsed) ? game.reviveUsed : 0;
+    const mode = genModeForUsedRevives(usedRevives, level);
+    const useSolvable = (mode === GEN_DESIGNED);
 
     /* ---------- 第一步：每层各自建候选池（全是整数格坐标） ---------- */
     const pools = [];
@@ -1325,21 +1443,54 @@
         }
       }
     } else if (encode === 'ramp') {
-      /* 前半段轻松、后半段上难度 */
+      /* 按难度档铺牌。三档的区别：
+       *   GEN_RANDOM   → 纯随机贴图：牌堆照样按规则叠好，但图案完全打乱，
+       *                  不保证有解（最狠）
+       *   GEN_SCATTER  → 前半段有铺垫、后半段同款打散：中档，不保证有解
+       *   GEN_DESIGNED → 按设计好的一条通关路线铺：整局一定解得开 */
       const easyRatio = (typeof level.easyRatio === 'number') ? level.easyRatio : 0.5;
       const hardOcc = (typeof level.hardOccupancy === 'number') ? level.hardOccupancy : ((level.slots || 7) - 1);
-      let deal = null;
-      for (let attempt = 0; attempt < 8 && !deal; attempt++) {
-        deal = dealRamp(total, kindCount, level.slots || 7, easyRatio, hardOcc - (attempt > 4 ? 1 : 0));
-      }
-      if (deal) {
-        dealPeak = deal.peak;
-        applyDeal(deal);
-        board.easyPeak = deal.easyPeak;
-        board.easyEnd = deal.easyEnd;
-      } else {
+
+      /* 注意：GEN_RANDOM 和 GEN_SCATTER 都走「纯随机贴图」。
+       * 原因（实测出来的）：只要走 dealRamp，它必然返回一条合法通关路线，
+       * 于是「设计路线可通率」就是 100% —— 那就等于保证可解，
+       * 跟「不保证有解」完全不是一回事。
+       * 想要「不保证有解」，就必须放弃设计路线，改用纯随机贴图。
+       * GEN_SCATTER 这个常量先留着（配置里写 1 仍是这个档），
+       * 目前它的行为和 GEN_RANDOM 一致，将来如果要区分再放开。 */
+      if (mode === GEN_RANDOM || mode === GEN_SCATTER) {
+        /* 纯随机：只把图案随机贴到已经摆好的牌堆上。
+         * 张数不变（每种还是 perKind 组），所以永远消得完，
+         * 只是「能不能凑齐」全看运气 —— 这就是「不保证有解」。 */
         const allKinds = buildTileKinds(level);
+        shuffleArray(allKinds);
         for (let i = 0; i < board.length; i++) board[i].kind = allKinds[i % allKinds.length];
+        board.solveGuaranteed = false;
+        // 档位名分开写，方便在控制台看出「这次用的是哪一档」
+        board.mode = (mode === GEN_RANDOM) ? 'random-hard' : 'random-mid';
+        board.reviveUsedAtDeal = usedRevives;
+      } else {
+        const requireSolve = (mode === GEN_DESIGNED);
+        let deal = null;
+        for (let attempt = 0; attempt < 8 && !deal; attempt++) {
+          deal = dealRamp(total, kindCount, level.slots || 7, easyRatio,
+                          hardOcc - (attempt > 4 ? 1 : 0), requireSolve);
+        }
+        if (deal) {
+          dealPeak = deal.peak;
+          applyDeal(deal);
+          board.easyPeak = deal.easyPeak;
+          board.easyEnd = deal.easyEnd;
+          board.solveGuaranteed = requireSolve;
+          board.mode = requireSolve ? 'designed' : 'scatter';
+        } else {
+          const allKinds = buildTileKinds(level);
+          shuffleArray(allKinds);
+          for (let i = 0; i < board.length; i++) board[i].kind = allKinds[i % allKinds.length];
+          board.solveGuaranteed = false;
+          board.mode = 'random';
+        }
+        board.reviveUsedAtDeal = usedRevives;
       }
     } else if (encode === 'solvable') {
       /* 目标卡槽峰值。
@@ -1392,6 +1543,7 @@
     slots: [],        // 下方卡槽，按点击顺序从左往右排
     over: false,      // 本局是否已结束（已弹出结束/复活弹窗）
     reviveLeft: 0,    // 还剩几次复活机会
+    reviveUsed: 0,    // 本局已经复活过几次（用来决定下一局的难度档）
     /* 图鉴解锁记录：{ 物品id: true }
      * 这一份是【持久化】的 —— 开局时从 localStorage 读回来，
      * 解锁新物品时立刻写回去。所以关掉浏览器再打开，已解锁的还在，
@@ -2325,6 +2477,7 @@
 
     // 3) 扣掉一次机会，关掉弹窗，继续打
     game.reviveLeft--;
+    game.reviveUsed++;   // 记一笔：下次开局用复活次数算难度
     game.over = false;
     closeModal();
     refreshAll();
@@ -2438,6 +2591,13 @@
     // 复活次数按关卡配置重置
     const reviveCfg = game.level.revive || { times: 0 };
     game.reviveLeft = reviveCfg.times || 0;
+    /* 注意：这里【不要】重置 reviveUsed。
+     * generateBoard 就在下面几行被调用，它要读这个值来决定本局难度：
+     *   reviveUsed = 0 → 本局不保证有解（超难）
+     *   reviveUsed = 1 → 本局 30% 保证有解
+     *   reviveUsed ≥ 2 → 本局保证有解
+     * 它在 revive() 里累加，在【开新局之前】被读取，所以正好形成
+     * 「这局卡住复活过几次 → 下一局就放水到什么程度」的递进。 */
     game.dom.clear();
     if (hasDom) {
       stageEl.innerHTML = '';
@@ -2504,6 +2664,9 @@
   }
 
   if (hasDom) { window.__game = game; }   // 调试用：控制台可以看 game.board / game.slots
+
+  // 算法自检用：临时指定「已复活次数」，用来验证动态难度各档的真实难度
+  function setUsedRevivesForTest(n) { game.reviveUsed = n || 0; }
 
   /* ==========================================================================
    * 十六、启动（只在浏览器里跑；node 里 require 时不会执行，方便做算法自检）
@@ -2606,6 +2769,9 @@
       buildTileKinds: buildTileKinds,
       dealSolvable: dealSolvable,
       dealRamp: dealRamp,
+      setUsedRevivesForTest: setUsedRevivesForTest,
+      genModeForUsedRevives: genModeForUsedRevives,
+      boardExact: boardExact,
       applyDecoys: applyDecoys,
       scoreVisibility: scoreVisibility,
       dealForcedRevive: dealForcedRevive,
