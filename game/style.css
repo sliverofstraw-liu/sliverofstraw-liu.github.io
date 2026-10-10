@@ -245,12 +245,12 @@ body {
 
 /* ---------- 底部按钮 ---------- */
 #footer {
-  flex: 1 1 auto;                 /* 吃掉剩余高度，按钮再靠下摆 → 稳在屏幕底部 */
+  flex: 0 0 auto;                 /* 不抢空间：紧跟在主题小字下面，不再被推到屏幕最底部 */
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  padding: 8px 0 10px;
+  justify-content: flex-start;
+  padding: 12px 0 6px;            /* 和小字之间留一点空隙 */
 }
 
 .btn {
