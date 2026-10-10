@@ -1433,9 +1433,10 @@
   const escapeOverlayEl  = hasDom ? document.getElementById('escapeOverlay') : null;
   const escapeTitleEl    = hasDom ? document.getElementById('escapeTitle') : null;
   const escapeLeadEl     = hasDom ? document.getElementById('escapeLead') : null;
-  const escapeStepsEl    = hasDom ? document.getElementById('escapeSteps') : null;
-  const escapeFallbackEl = hasDom ? document.getElementById('escapeFallback') : null;
-  const escapeTryBtnEl   = hasDom ? document.getElementById('escapeTryBtn') : null;
+  const escapeHowtoEl    = hasDom ? document.getElementById('escapeHowto') : null;
+  const escapeUrlEl      = hasDom ? document.getElementById('escapeUrl') : null;
+  const escapeHintEl     = hasDom ? document.getElementById('escapeHint') : null;
+  const escapeCopyBtnEl  = hasDom ? document.getElementById('escapeCopyBtn') : null;
   const escapeSkipBtnEl  = hasDom ? document.getElementById('escapeSkipBtn') : null;
 
   /* ==========================================================================
@@ -1477,14 +1478,75 @@
     try { sessionStorage.setItem('xxy_escape', '1'); } catch (e) { /* 忽略 */ }
   }
 
-  function setEscapeSteps(list) {
-    if (!escapeStepsEl) return;
-    escapeStepsEl.innerHTML = '';
-    for (let i = 0; i < list.length; i++) {
-      const li = document.createElement('li');
-      li.textContent = list[i];
-      escapeStepsEl.appendChild(li);
+  /* 复制链接到剪贴板。
+   * 微信 / QQ 的内置浏览器对剪贴板有额外限制，所以分三级降级：
+   *   ① navigator.clipboard.writeText（需要 HTTPS + 用户手势，可能被拒）
+   *   ② 老办法 execCommand('copy') + 临时 textarea（兼容性最好）
+   *   ③ 都失败 → 把链接显示出来，让用户长按选择复制
+   * 返回 'ok' / 'manual'，调用方据此给不同的提示。 */
+  function copyTextToClipboard(text) {
+    const selectUrlText = function () {
+      if (!escapeUrlEl) return;
+      try {
+        const range = document.createRange();
+        range.selectNodeContents(escapeUrlEl);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch (e) { /* 忽略 */ }
+    };
+
+    /* 复制这件事在「内置浏览器」里没有百分之百可靠的办法，所以：
+     *   ① 同步的老办法 execCommand('copy') —— 立刻有结果，成功就提示成功；
+     *   ② 同时【并行】发起现代接口 navigator.clipboard.writeText ——
+     *      它要是成功了就覆盖成成功提示（HTTPS 页面上它一般都能成）；
+     *   ③ 800ms 内两边都没成 → 明确告诉用户复制失败，并把链接【选中】，
+     *      用户长按就能手动复制。
+     * 要点：绝不能让用户点了按钮却毫无反应 —— 每种结局都有提示。 */
+    let shown = false;
+    const showOk = function () {
+      if (shown) return;
+      shown = true;
+      setEscapeHint('已复制，去浏览器地址栏粘贴就能打开', 'ok');
+    };
+    const showManual = function () {
+      if (shown) return;
+      shown = true;
+      selectUrlText();
+      setEscapeHint('复制没成功，请长按上面那行链接手动复制', 'warn');
+    };
+
+    // ① 同步老办法
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);   // iOS 必须显式设范围
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) { showOk(); return; }
+    } catch (e) { /* 继续走下面的路 */ }
+
+    // ② 并行试现代接口
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        navigator.clipboard.writeText(text).then(showOk, function () { /* 交给超时兜底 */ });
+      } catch (e) { /* 忽略 */ }
     }
+
+    // ③ 兜底：给足时间，然后明确告知
+    setTimeout(showManual, 800);
+  }
+
+  function setEscapeHint(text, kind) {
+    if (!escapeHintEl) return;
+    escapeHintEl.textContent = text;
+    escapeHintEl.className = 'escape-hint' + (kind ? ' ' + kind : '');
   }
 
   // 弹出引导层（只有确认识别到微信/QQ、且本次会话没处理过才弹）
@@ -1497,18 +1559,22 @@
     game.escapeShown = true;
 
     const isQQ = (where === 'qq');
+    const here = location.href;
+
     if (escapeTitleEl) escapeTitleEl.textContent = '建议用浏览器打开';
     if (escapeLeadEl) {
       escapeLeadEl.textContent = (isQQ ? '这里是 QQ 自带的浏览器' : '这里是微信自带的浏览器') +
         '，页面会被它的工具栏挤矮一点。换个浏览器打开会更舒服（全屏、不挤）。';
     }
-    if (escapeStepsEl) {
-      escapeStepsEl.style.display = '';
-      setEscapeSteps(['点右上角的「···」', '选「在浏览器中打开」']);
+    /* 不再教「点右上角 ···」—— 各家版本菜单位置不一样，
+     * QQ 有些版本右上角根本没有三点，教了反而误导。
+     * 改成「复制链接 → 打开浏览器 → 粘贴」，这条路不依赖任何菜单。 */
+    if (escapeHowtoEl) {
+      escapeHowtoEl.textContent = '复制下面的链接，打开你手机上的浏览器，粘贴到地址栏就能看：';
     }
-    if (escapeFallbackEl) escapeFallbackEl.textContent = '';
-    // 只有 QQ 安卓那条路有机会唤起，微信上不给这个按钮，免得用户白点
-    if (escapeTryBtnEl) escapeTryBtnEl.style.display = isQQ ? '' : 'none';
+    if (escapeUrlEl) escapeUrlEl.textContent = here;
+    setEscapeHint('', '');
+    if (escapeCopyBtnEl) escapeCopyBtnEl.textContent = '复制链接';
 
     escapeOverlayEl.classList.add('show');
     return true;
@@ -1516,37 +1582,6 @@
 
   function closeEscapeGuide() {
     if (escapeOverlayEl) escapeOverlayEl.classList.remove('show');
-  }
-
-  /* 试着唤起系统浏览器。
-   * 说明：这是「尽力而为」—— QQ 安卓上 mttbrowser:// 有时能唤起，
-   * 微信上必定失败。所以无论成败都把步骤说明补上，让用户有辙可走。 */
-  function tryEscapeToBrowser() {
-    const where = detectInAppBrowser();
-    const here = location.href;
-    const isAndroid = /android/i.test(navigator.userAgent || '');
-
-    const showManualHint = function () {
-      if (escapeFallbackEl) {
-        escapeFallbackEl.textContent = (where === 'wechat')
-          ? '微信不允许网页自己跳出去，得麻烦你手动点右上角「···」→「在浏览器中打开」。'
-          : '没能自动跳过去，麻烦手动点右上角「···」→「在浏览器中打开」。';
-      }
-      if (escapeStepsEl) escapeStepsEl.style.display = '';
-    };
-
-    if (where === 'qq' && isAndroid) {
-      // 未公开接口：成了就跳走，不成会静默失败
-      try {
-        location.href = 'mttbrowser://url=' + encodeURIComponent(here);
-      } catch (e) { /* 忽略 */ }
-      setTimeout(function () {
-        // 1.2 秒后如果还停在这页，说明没跳成功 → 给出文字引导
-        if (!document.hidden) showManualHint();
-      }, 1200);
-      return;
-    }
-    showManualHint();
   }
 
   /* ==========================================================================
@@ -2454,7 +2489,11 @@
     updateCodexBadge();
 
     // 微信 / QQ 内置浏览器 → 弹一次全屏引导（教用户切到系统浏览器）
-    if (escapeTryBtnEl) escapeTryBtnEl.addEventListener('click', tryEscapeToBrowser);
+    if (escapeCopyBtnEl) {
+      escapeCopyBtnEl.addEventListener('click', function () {
+        copyTextToClipboard(location.href);
+      });
+    }
     if (escapeSkipBtnEl) {
       escapeSkipBtnEl.addEventListener('click', function () {
         markEscapeHandled();

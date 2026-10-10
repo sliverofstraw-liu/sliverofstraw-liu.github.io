@@ -45,17 +45,21 @@
   </div>
 
   <!-- ============ 在微信 / QQ 里打开时的引导遮罩 ============
-       说明：微信和 QQ 的内置浏览器【不允许】网页自动跳到外部浏览器
-       （scheme 会被它们拦截，这是有意设计的），所以这里只能做引导：
-       教用户点右上角「···」，再选「在浏览器中打开」。
+       现实：微信和 QQ 的内置浏览器【不允许】网页自动跳到外部浏览器（scheme 被拦），
+       而且它们的菜单位置各家版本都不一样（QQ 的部分版本右上角就没有「···」），
+       所以给「点某个按钮」的固定引导是不靠谱的。
+       这里改成【复制链接 + 把链接显示出来】：
+         ① 点「复制链接」→ 复制成功就提示，失败就把链接显示出来让用户长按复制；
+         ② 链接始终显示在下面，用户也可以长按手动选。
        点过按钮、或点了「就在这儿玩」之后就不再弹（存在 sessionStorage）。 -->
   <div id="escapeOverlay" class="modal" role="dialog" aria-modal="true">
     <div class="modal-card escape-card">
       <h2 id="escapeTitle">建议用浏览器打开</h2>
       <p id="escapeLead" class="escape-lead"></p>
-      <ol id="escapeSteps" class="escape-steps"></ol>
-      <p id="escapeFallback" class="escape-fallback"></p>
-      <button type="button" id="escapeTryBtn" class="btn btn-primary">试着直接打开</button>
+      <p id="escapeHowto" class="escape-howto"></p>
+      <p id="escapeUrl" class="escape-url" tabindex="0"></p>
+      <p id="escapeHint" class="escape-hint"></p>
+      <button type="button" id="escapeCopyBtn" class="btn btn-primary">复制链接</button>
       <button type="button" id="escapeSkipBtn" class="btn escape-skip">就在这儿玩</button>
     </div>
   </div>
