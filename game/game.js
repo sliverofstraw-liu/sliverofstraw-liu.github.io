@@ -1393,6 +1393,7 @@
     over: false,      // 本局是否已结束（已弹出结束/复活弹窗）
     reviveLeft: 0,    // 还剩几次复活机会
     knowledge: {},    // 已经解锁的西迁知识点：{ 物品id: true }
+    escapeShown: false, // 微信/QQ 引导层是否已经弹过（同一次会话只弹一次）
     dom: new Map()    // 牌 id -> DOM 节点
   };
 
@@ -1427,6 +1428,126 @@
   const quizQuestionEl  = hasDom ? document.getElementById('quizQuestion') : null;
   const quizOptionsEl   = hasDom ? document.getElementById('quizOptions') : null;
   const quizResultEl    = hasDom ? document.getElementById('quizResult') : null;
+
+  /* 微信 / QQ 引导遮罩 */
+  const escapeOverlayEl  = hasDom ? document.getElementById('escapeOverlay') : null;
+  const escapeTitleEl    = hasDom ? document.getElementById('escapeTitle') : null;
+  const escapeLeadEl     = hasDom ? document.getElementById('escapeLead') : null;
+  const escapeStepsEl    = hasDom ? document.getElementById('escapeSteps') : null;
+  const escapeFallbackEl = hasDom ? document.getElementById('escapeFallback') : null;
+  const escapeTryBtnEl   = hasDom ? document.getElementById('escapeTryBtn') : null;
+  const escapeSkipBtnEl  = hasDom ? document.getElementById('escapeSkipBtn') : null;
+
+  /* ==========================================================================
+   * 八点五、在微信 / QQ 内置浏览器里打开时的引导
+   * --------------------------------------------------------------------------
+   * 先说清楚现实情况，免得做无用功：
+   *   微信和 QQ 的内置浏览器是【故意】不让网页自动跳到外部浏览器的 ——
+   *   iOS 上 weixin:// 这类 scheme 根本调不动；Android 上微信还会屏蔽
+   *   非白名单域名的 scheme 调用。网上那些「点击链接自动跳浏览器」的方案，
+   *   今天可能半能用、明天微信一更新就废，不能依赖。
+   * 所以这里的做法是：
+   *   ① 识别出确实在微信 / QQ 里 → 弹一个全屏引导层；
+   *   ② 告诉用户「点右上角 ··· → 在浏览器中打开」这个唯一可靠的办法；
+   *   ③ 在 QQ 安卓上顺手再试一次 mttbrowser:// 唤起（失败自动退化成文字引导）；
+   *   ④ 用户点过「就在这儿玩」就不再打扰（存 sessionStorage）。
+   *
+   * 注意：游戏本身在微信里也能正常玩（布局差异已经修掉了），
+   * 这一层只是让想要「全屏、不被工具栏挤」的人知道怎么切过去。
+   * ========================================================================*/
+
+  // 识别当前所在的内置浏览器
+  function detectInAppBrowser() {
+    if (!hasDom) return null;
+    const ua = navigator.userAgent || '';
+    if (/MicroMessenger/i.test(ua)) return 'wechat';
+    if (/\bQQ\/|QQBrowser|TencentTraveler/i.test(ua)) return 'qq';
+    return null;
+  }
+
+  function escapeAlreadyHandled() {
+    try {
+      return sessionStorage.getItem('xxy_escape') === '1';
+    } catch (e) {
+      return false;   // 隐私模式下 sessionStorage 可能不可用，那就每次都问
+    }
+  }
+
+  function markEscapeHandled() {
+    try { sessionStorage.setItem('xxy_escape', '1'); } catch (e) { /* 忽略 */ }
+  }
+
+  function setEscapeSteps(list) {
+    if (!escapeStepsEl) return;
+    escapeStepsEl.innerHTML = '';
+    for (let i = 0; i < list.length; i++) {
+      const li = document.createElement('li');
+      li.textContent = list[i];
+      escapeStepsEl.appendChild(li);
+    }
+  }
+
+  // 弹出引导层（只有确认识别到微信/QQ、且本次会话没处理过才弹）
+  function maybeShowEscapeGuide() {
+    const where = detectInAppBrowser();
+    if (!where) return false;
+    if (escapeAlreadyHandled()) return false;
+    if (!escapeOverlayEl) return false;
+    if (game.escapeShown) return false;
+    game.escapeShown = true;
+
+    const isQQ = (where === 'qq');
+    if (escapeTitleEl) escapeTitleEl.textContent = '建议用浏览器打开';
+    if (escapeLeadEl) {
+      escapeLeadEl.textContent = (isQQ ? '这里是 QQ 自带的浏览器' : '这里是微信自带的浏览器') +
+        '，页面会被它的工具栏挤矮一点。换个浏览器打开会更舒服（全屏、不挤）。';
+    }
+    if (escapeStepsEl) {
+      escapeStepsEl.style.display = '';
+      setEscapeSteps(['点右上角的「···」', '选「在浏览器中打开」']);
+    }
+    if (escapeFallbackEl) escapeFallbackEl.textContent = '';
+    // 只有 QQ 安卓那条路有机会唤起，微信上不给这个按钮，免得用户白点
+    if (escapeTryBtnEl) escapeTryBtnEl.style.display = isQQ ? '' : 'none';
+
+    escapeOverlayEl.classList.add('show');
+    return true;
+  }
+
+  function closeEscapeGuide() {
+    if (escapeOverlayEl) escapeOverlayEl.classList.remove('show');
+  }
+
+  /* 试着唤起系统浏览器。
+   * 说明：这是「尽力而为」—— QQ 安卓上 mttbrowser:// 有时能唤起，
+   * 微信上必定失败。所以无论成败都把步骤说明补上，让用户有辙可走。 */
+  function tryEscapeToBrowser() {
+    const where = detectInAppBrowser();
+    const here = location.href;
+    const isAndroid = /android/i.test(navigator.userAgent || '');
+
+    const showManualHint = function () {
+      if (escapeFallbackEl) {
+        escapeFallbackEl.textContent = (where === 'wechat')
+          ? '微信不允许网页自己跳出去，得麻烦你手动点右上角「···」→「在浏览器中打开」。'
+          : '没能自动跳过去，麻烦手动点右上角「···」→「在浏览器中打开」。';
+      }
+      if (escapeStepsEl) escapeStepsEl.style.display = '';
+    };
+
+    if (where === 'qq' && isAndroid) {
+      // 未公开接口：成了就跳走，不成会静默失败
+      try {
+        location.href = 'mttbrowser://url=' + encodeURIComponent(here);
+      } catch (e) { /* 忽略 */ }
+      setTimeout(function () {
+        // 1.2 秒后如果还停在这页，说明没跳成功 → 给出文字引导
+        if (!document.hidden) showManualHint();
+      }, 1200);
+      return;
+    }
+    showManualHint();
+  }
 
   /* ==========================================================================
    * 九、西迁知识点提示条
@@ -2331,6 +2452,17 @@
       });
     }
     updateCodexBadge();
+
+    // 微信 / QQ 内置浏览器 → 弹一次全屏引导（教用户切到系统浏览器）
+    if (escapeTryBtnEl) escapeTryBtnEl.addEventListener('click', tryEscapeToBrowser);
+    if (escapeSkipBtnEl) {
+      escapeSkipBtnEl.addEventListener('click', function () {
+        markEscapeHandled();
+        closeEscapeGuide();
+      });
+    }
+    // 等布局稳定后再弹，避免和首屏渲染抢时间
+    setTimeout(maybeShowEscapeGuide, 500);
   }
 
   if (hasDom && document.readyState === 'loading') {
