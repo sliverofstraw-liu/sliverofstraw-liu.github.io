@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <!-- 手机竖屏优先：宽度自适应，禁止放大缩小导致的诡异布局 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f3ece2">
+  <title>西迁行囊 · 三消小游戏</title>
+  <!-- 相对路径引用，所以双击 index.html（file://）和放到静态托管上都能用 -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 顶部：关卡名 / 剩余牌数 / 复活机会 + 图鉴入口 -->
+  <header id="hud">
+    <div class="hud-item">
+      <span class="hud-label">关卡</span>
+      <span class="hud-value" id="levelName">—</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-label">剩余牌数</span>
+      <span class="hud-value" id="remainCount">0</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-label">复活</span>
+      <span class="hud-value" id="reviveCount">0</span>
+    </div>
+    <button type="button" id="codexBtn" class="hud-btn" title="西迁行囊图鉴">
+      图鉴 <span id="codexCount">0/10</span>
+    </button>
+  </header>
+
+  <main id="app">
+    <!-- 牌堆区：24×24 虚拟棋盘，每张牌是一个绝对定位的 DOM 节点 -->
+    <div id="stage" aria-label="牌堆"></div>
+
+    <!-- 下方卡槽：按关卡配置的格子数（默认 7），按点击顺序从左往右排 -->
+    <div id="slotsBar">
+      <div id="slots" aria-label="卡槽"></div>
+    </div>
+
+    <!-- 底部按钮 -->
+    <footer id="footer">
+      <button type="button" id="restartBtn" class="btn">重新开始</button>
+    </footer>
+  </main>
+
+  <!-- ============ 消牌知识点提示条（自动消失，不挡操作） ============ -->
+  <div id="tipbar" class="tipbar" aria-live="polite">
+    <span class="tipbar-tag">西迁知识点</span>
+    <span id="tipText"></span>
+  </div>
+
+  <!-- ============ 输 / 赢 / 答题复活 弹窗 ============ -->
+  <div id="modal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h2 id="modalTitle">提示</h2>
+      <p id="modalHint"></p>
+
+      <!-- 答题区：只有「答题复活」时才显示 -->
+      <div id="quizBox" class="quiz-box" hidden>
+        <p id="quizQuestion" class="quiz-question"></p>
+        <div id="quizOptions" class="quiz-options"></div>
+        <p id="quizResult" class="quiz-result"></p>
+      </div>
+
+      <button type="button" id="modalButton" class="btn btn-primary">再来一局</button>
+    </div>
+  </div>
+
+  <!-- ============ 图鉴：全部物品（图片 + 名称 + 是否已解锁） ============ -->
+  <div id="codexModal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-card codex-card">
+      <h2>西迁行囊图鉴</h2>
+      <p class="codex-sub" id="codexSub">消除 3 张相同物品，即可解锁它的故事</p>
+      <div id="codexGrid" class="codex-grid"></div>
+      <button type="button" id="codexCloseBtn" class="btn btn-primary">关掉图鉴</button>
+    </div>
+  </div>
+
+  <!-- ============ 单个物品详情：图片 + 知识点 + 详细介绍 ============ -->
+  <div id="detailModal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-card detail-card">
+      <div id="detailPic" class="detail-pic"></div>
+      <h2 id="detailTitle">物品</h2>
+      <p id="detailKnowledge" class="detail-knowledge"></p>
+      <p id="detailBody" class="detail-body"></p>
+      <button type="button" id="detailCloseBtn" class="btn btn-primary">返回图鉴</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

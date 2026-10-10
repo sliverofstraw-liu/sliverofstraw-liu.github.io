@@ -1,0 +1,570 @@
+/* ============================================================================
+ * 西迁主题 · 羊了个羊式三消小游戏（第一版：框架版）样式
+ * ----------------------------------------------------------------------------
+ * 布局要点：
+ *   1. 手机竖屏优先，宽度自适应，绝不出现横向滚动条（overflow-x: hidden + 尺寸由 JS 算）。
+ *   2. 牌堆是 24×24 的虚拟棋盘，每张牌占 3×3 格，位置全部由整数格坐标算出。
+ *   3. 每张牌都是普通 DOM 节点（div），不是 Canvas 画出来的，
+ *      所以后期同学想换成图片，只要在 game.js 的 TILES 里填 img 就行。
+ * ==========================================================================*/
+
+/* ---------- 全局变量：--cell / --board / --slot 由 game.js 在运行时按屏幕算好 ---------- */
+:root {
+  --cell: 16px;                      /* 一个虚拟格子的边长（运行时覆盖） */
+  --board: 384px;                    /* 棋盘总边长 = cell × 24 */
+  --slot: 16px;                      /* 卡槽里一格的边长 */
+  --slot-tile: 48px;                 /* 卡槽里一张牌的边长 = slot × 3 */
+  --slots: 7;                        /* 卡槽格子数 */
+  --font-board: 14px;
+  --font-slot: 14px;
+
+  --bg: #f3ece2;
+  --bg-2: #e6dccd;
+  --ink: #3b3226;
+  --ink-soft: #8a7d69;
+  --line: #cdbfa8;
+  --accent: #b5563f;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  /* 手机上不出现横向滚动条 */
+  overflow-x: hidden;
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+  color: var(--ink);
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Heiti SC", system-ui, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  /* 允许纵向滚动（屏幕特别矮时），但不会横向滚 */
+  overflow-y: auto;
+}
+
+/* ---------- 顶部 HUD：关卡名 / 剩余牌数 ---------- */
+#hud {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 14px 6px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+#hud .hud-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+#hud .hud-label {
+  color: var(--ink-soft);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+#hud .hud-value {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- 主体 ---------- */
+#app {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 8px 10px;
+}
+
+/* ---------- 牌堆区（24×24 虚拟棋盘） ---------- */
+#stage {
+  position: relative;
+  width: var(--board);
+  height: var(--board);
+  margin: 2px auto 10px;
+  /* 棋盘底纹：格子淡淡的线，帮助看清「谁压着谁」都落在格线上 */
+  background-image:
+    linear-gradient(to right, rgba(120, 105, 80, 0.10) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(120, 105, 80, 0.10) 1px, transparent 1px);
+  background-size: var(--cell) var(--cell);
+  background-position: -1px -1px; /* 让格线落在整格边界上 */
+  background-color: rgba(255, 255, 255, 0.28);
+  border-radius: 10px;
+  /* 牌最多只占 24 格，这里裁掉描边溢出的一点点，保证页面绝对不出现横向滚动条 */
+  overflow: hidden;
+}
+
+/* ---------- 一张牌 ---------- */
+.tile {
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  /* 牌面：白底 + 描边 + 投影，堆叠时层次清楚。
+     注意：描边用 box-shadow 而不是 outline —— outline 会画在盒子外面，
+     靠边的牌就会把页面撑出横向滚动条。 */
+  background: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 1px rgba(60, 45, 25, 0.16), 0 2px 4px rgba(60, 45, 25, 0.20);
+  transition: opacity 0.12s linear, transform 0.12s ease-out;
+  touch-action: manipulation;
+  will-change: opacity;
+  box-sizing: border-box;
+}
+
+.tile.on-board {
+  position: absolute;
+  padding: 2px;
+}
+
+/* 牌上的文字（占位素材用） */
+.tile-label {
+  font-size: var(--font-board);
+  font-weight: 700;
+  line-height: 1.02;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  text-align: center;
+  letter-spacing: 0;
+  padding: 0;
+  pointer-events: none;  /* 点击永远交给 .tile 本身 */
+  word-break: break-all;
+  /* 名字太长的（三个字）允许缩一点，别把牌面撑破 */
+  max-width: 100%;
+}
+
+/* 以后换成真实图片时用的样式（img 有值就走这条路） */
+.tile-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  display: block;
+}
+
+/* ---------- 被压住的牌：分两档，都是为了「一眼看出点不了 + 画面不乱」 ---------- */
+
+/* 第一档：只被 1 张牌压住 → 半透明
+   还看得清是什么图案，玩家能提前规划；但明显暗下去，一眼知道现在点不了。 */
+.tile.blocked {
+  opacity: 0.42;
+  filter: grayscale(0.45) brightness(0.9);
+  box-shadow: none;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* 第二档：被 2 张以上压住 → 素色牌背
+   图案和文字全部盖掉，只留一块比棋盘背景【略深一点】的暖色方块。
+   为什么不用深色：深色牌背一下就把画面压黑了，很突兀；
+   跟背景同一色系、只深一档，才像「盖住的牌」而不是「挖了个洞」。
+   注意必须完全不透明 —— 半透明的话底下的牌会透上来，一层层糊成一片。 */
+.tile.deep-blocked {
+  opacity: 1 !important;
+  filter: none;
+  background: #cec3af !important;                        /* 比棋盘底 #f3ece2 深一档 */
+  border: 1px solid rgba(140, 122, 95, 0.28);
+  box-shadow: 0 0 0 1px rgba(120, 104, 80, 0.14);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+/* 牌背上的图案/文字：直接隐形 */
+.tile.deep-blocked .tile-label,
+.tile.deep-blocked .tile-img {
+  visibility: hidden;
+}
+
+/* 在卡槽里的牌 */
+.tile.in-slot {
+  position: relative;
+  width: var(--slot-tile);
+  height: var(--slot-tile);
+  flex: 0 0 auto;
+  padding: 2px;
+  cursor: default;
+}
+
+/* 消掉时的小动画（很轻，不做复杂动画） */
+.tile.clearing {
+  transform: scale(0.55);
+  opacity: 0;
+}
+
+/* ---------- 卡槽区：7 格 ---------- */
+#slotsBar {
+  flex: 0 0 auto;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 6px 0 4px;
+}
+
+#slots {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 6px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(60, 45, 25, 0.10);
+  /* 7 格固定宽度，随格子大小缩放，永远不撑破屏幕 */
+  width: calc(var(--slot-tile) * var(--slots) + 4px * (var(--slots) - 1) + 14px);
+  max-width: 100%;
+}
+
+/* 卡槽里的空位（虚线小方块），让玩家知道还剩几格 */
+.slot-placeholder {
+  flex: 0 0 auto;
+  width: var(--slot-tile);
+  height: var(--slot-tile);
+  border: 1px dashed rgba(120, 105, 80, 0.45);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* ---------- 底部按钮 ---------- */
+#footer {
+  flex: 0 0 auto;
+  padding: 8px 0 4px;
+}
+
+.btn {
+  /* 可点区域不小于 44×44 像素 */
+  min-height: 44px;
+  min-width: 132px;
+  padding: 10px 22px;
+  font-size: 16px;
+  font-family: inherit;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(60, 45, 25, 0.25);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 3px rgba(60, 45, 25, 0.25);
+}
+
+.btn-primary {
+  background: #3f6fb5;
+}
+
+/* ---------- 弹窗（输 / 赢） ---------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(35, 28, 18, 0.45);
+  z-index: 9000;
+}
+
+.modal.show {
+  display: flex;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 320px;
+  background: #fffdf8;
+  border-radius: 16px;
+  padding: 22px 20px 18px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(30, 22, 12, 0.30);
+}
+
+.modal-card h2 {
+  margin: 0 0 10px;
+  font-size: 20px;
+  color: var(--ink);
+}
+
+.modal-card p {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+/* ============================================================================
+ * 西迁主题相关：图鉴入口 / 知识点提示条 / 答题复活 / 图鉴 / 物品详情
+ * ==========================================================================*/
+
+/* ---------- 顶部的「图鉴」小按钮 ---------- */
+.hud-btn {
+  margin-left: auto;              /* 推到最右边 */
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b5b42;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+.hud-btn:active { transform: translateY(1px); }
+
+/* ---------- 消牌知识点提示条（底部浮出，自动收起） ---------- */
+.tipbar {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  bottom: 10px;
+  z-index: 8000;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(59, 50, 38, 0.94);
+  color: #fdf8ee;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow: 0 6px 18px rgba(30, 22, 12, 0.28);
+  /* 默认藏起来，加 .show 才滑出来 */
+  opacity: 0;
+  transform: translateY(14px);
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.tipbar.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+.tipbar-tag {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #4a3f2e;
+  background: #e8c97a;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+/* ---------- 答题复活 ---------- */
+.quiz-box {
+  margin: 0 0 16px;
+  text-align: left;
+}
+.quiz-question {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--ink) !important;
+}
+.quiz-options {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.quiz-option {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.quiz-option:active { transform: translateY(1px); }
+.quiz-option.locked { cursor: default; }
+.quiz-option.right {
+  background: #e6f3e6;
+  border-color: #5a8f5a;
+  color: #2f5a2f;
+  font-weight: 700;
+}
+.quiz-option.wrong {
+  background: #fbe9e9;
+  border-color: #b5563f;
+  color: #8a3a2a;
+}
+.quiz-result {
+  display: none;
+  margin: 10px 0 0 !important;
+  padding: 9px 10px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #4a3f2e !important;
+  background: #f6efe0;
+  border-left: 3px solid #c9a227;
+  border-radius: 6px;
+}
+.quiz-result.show { display: block; }
+
+/* ---------- 图鉴 ---------- */
+.codex-card {
+  max-width: 380px;
+  max-height: 84vh;
+  overflow-y: auto;
+}
+.codex-sub {
+  margin: -4px 0 12px !important;
+  font-size: 12px;
+}
+.codex-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  margin: 0 0 16px;
+}
+.codex-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 4px 7px;
+  background: #f7f2e8;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.codex-cell:active { transform: translateY(1px); }
+.codex-cell.locked {
+  cursor: default;
+  opacity: 0.55;
+  filter: grayscale(1);
+}
+.codex-art {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #cec3af;
+}
+.codex-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+/* 没有图片时的占位文字 */
+.art-label {
+  padding: 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+  line-height: 1.15;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  word-break: break-all;
+}
+.art-locked {
+  font-size: 26px;
+  font-weight: 400;
+  opacity: 0.75;
+}
+.codex-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ---------- 单个物品详情 ---------- */
+.detail-card {
+  max-width: 340px;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+.detail-pic {
+  margin: 0 auto 12px;
+}
+.detail-art {
+  width: 132px;
+  height: 132px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #cec3af;
+  box-shadow: 0 2px 8px rgba(60, 45, 25, 0.16);
+}
+.detail-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.detail-art .art-label {
+  font-size: 17px;
+}
+.detail-knowledge {
+  margin: 0 0 12px !important;
+  padding: 9px 11px;
+  font-size: 13px !important;
+  font-weight: 600;
+  line-height: 1.6;
+  color: #4a3f2e !important;
+  background: #f6efe0;
+  border-left: 3px solid #c9a227;
+  border-radius: 6px;
+  text-align: left;
+}
+.detail-body {
+  margin: 0 0 16px !important;
+  font-size: 12.5px !important;
+  line-height: 1.75 !important;
+  color: var(--ink-soft) !important;
+  text-align: left;
+  white-space: pre-wrap;        /* 让「出处」那段换行生效 */
+}
+
+/* ---------- 屏幕特别矮的情况（比如手机横屏）：把卡槽缩小，给牌堆让出高度 ---------- */
+@media (max-height: 640px) {
+  #slotsBar { padding: 3px 0; }
+  #hud { padding: 5px 12px 3px; }
+  #footer { padding: 5px 0 2px; }
+}
+
+/* ---------- 屏幕很窄：字号再收一点 ---------- */
+@media (max-width: 340px) {
+  #hud .hud-value { font-size: 14px; }
+  .btn { min-width: 118px; padding: 10px 16px; font-size: 15px; }
+}

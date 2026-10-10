@@ -1,0 +1,2295 @@
+/* ============================================================================
+ * 西迁主题 · 羊了个羊式三消小游戏（第一版：框架版）
+ * ----------------------------------------------------------------------------
+ * 技术栈：纯 HTML + CSS + 原生 JS，无第三方库 / 无构建工具 / 无 CDN。
+ * 渲染：全部用 DOM 元素 + CSS 定位（不用 Canvas），
+ *       每一张牌都是一个真实可见的 DOM 节点，后期同学换成图片非常方便。
+ * 打开方式：直接双击 index.html（file:// 协议）或放到静态托管上，都能玩。
+ * ==========================================================================*/
+
+(function () {
+  'use strict';
+
+  /* ==========================================================================
+   * 一、牌面配置（同学换图片只需要改这里的 img）
+   * --------------------------------------------------------------------------
+   * 每张牌 = 一件「西迁行囊」里的物品。三个字段各有分工：
+   *   img       图片路径。现在是 null，用色块 + 名字占位；
+   *             同学把图放进 assets/ 之后，改成 'assets/xxx.png' 即可，
+   *             **其他代码一行都不用动**。
+   *   label     牌面上显示的名字（也是图鉴里的标题）。
+   *   color     没有图片时的占位底色。
+   *
+   * 另外两段内容（知识点的短句 + 详细故事）在下面的 TILE_STORY 里，
+   * 分开写是为了让「换素材」和「改文案」互不干扰。
+   * ========================================================================*/
+  const TILES = [
+    { id: 'suitcase', label: '行李箱', color: '#e8734a', img: null },
+    { id: 'ticket',   label: '火车票', color: '#4a90d9', img: null },
+    { id: 'strawhat', label: '草帽',   color: '#c9a227', img: null },
+    { id: 'book',     label: '讲义',   color: '#5a8f5a', img: null },
+    { id: 'device',   label: '仪器',   color: '#7a6bb5', img: null },
+    { id: 'abacus',   label: '算盘',   color: '#b5563f', img: null },
+    { id: 'badge',    label: '校徽',   color: '#3f6fb5', img: null },
+    { id: 'photo',    label: '老照片', color: '#8a8f98', img: null },
+    { id: 'envelope', label: '家书',   color: '#c96f8a', img: null },
+    { id: 'lamp',     label: '煤油灯', color: '#8a6b3f', img: null }
+  ];
+
+  /* ==========================================================================
+   * 一点五、西迁知识点文案（改文字只动这里，不用碰逻辑）
+   * --------------------------------------------------------------------------
+   * knowledge：消掉这组牌时弹出来的一句话（要短、一眼看完）。
+   * body     ：图鉴里点开图片后看到的更详细介绍。
+   * 出处     ：底部小字，标一下来源，避免以讹传讹。
+   * ========================================================================*/
+  const TILE_STORY = {
+    suitcase: {
+      knowledge: '西迁的行李上都要写清姓名和地址 —— 怕路上丢了，就再也找不回来了。',
+      body: '1956 年迁校时，师生们把家当装进藤箱、木箱，箱子外面用毛笔写上姓名、单位、' +
+            '西安新校址。学校专门成立了搬运组，把实验设备、图书、仪器一件件打包编号，' +
+            '分批发运。很多箱子在路上走了半个多月才到西安。',
+      source: '据交通大学西迁史料及西迁博物馆展品'
+    },
+    ticket: {
+      knowledge: '1956 年 9 月，首批迁校师生乘火车从上海出发，车票上印着「上海—西安」。',
+      body: '从上海到西安，当年坐火车要走三天两夜。1956 年 9 月，首批迁校师生抵达西安，' +
+            '在新校址如期开学 —— 没有因为迁校推迟一天开学，也没有因为迁校少开一门课。',
+      source: '据《交通大学西迁记》（人民网·党史频道）'
+    },
+    strawhat: {
+      knowledge: '西安日头毒、风沙大，一顶草帽是当年最实用的「装备」。',
+      body: '新校址在西安东郊，当年还是一片农田和荒地。师生们下工地、搬设备、平整土地，' +
+            '草帽既能遮阳也能挡土。西迁初期的照片里，草帽几乎人手一顶。',
+      source: '据西迁时期照片及校友回忆'
+    },
+    book: {
+      knowledge: '迁校时最重的行李不是衣物，是讲义和教材 —— 那是教学的命根子。',
+      body: '老教授们把多年积累的讲义、教案、实验记录一本本装箱西运。到西安后条件艰苦，' +
+            '很多讲义是老师在煤油灯下重新誊写、刻印出来发给学生的。' +
+            '「课不能停，书不能断」是当年的共识。',
+      source: '据西迁老教授回忆及西迁博物馆藏品'
+    },
+    device: {
+      knowledge: '精密仪器要拆开、垫好、编号，再一件件运到西安重新装配调试。',
+      body: '交通大学当年不少实验设备在国内属于先进水平。迁校时，这些仪器先拆解、' +
+            '用稻草和棉絮层层包裹，编号装箱后分批西运，到西安后再由实验员逐台重新组装校准。' +
+            '西迁使西北地区的高等工科实验条件上了一个大台阶。',
+      source: '据交通大学西迁史料'
+    },
+    abacus: {
+      knowledge: '没有计算器的年代，算数据、算经费，都靠一把算盘。',
+      body: '上世纪五十年代，工程计算主要靠计算尺和算盘。西迁初期条件简陋，' +
+            '师生们就用算盘核对实验数据、统计工程用量。它看着朴素，却撑起了当年大量的科研与教学计算。',
+      source: '据西迁时期教学科研用品'
+    },
+    badge: {
+      knowledge: '交通大学校徽上有「饮水思源」四个字 —— 思的是国家的需要。',
+      body: '「饮水思源」是交通大学的校训传统。1955 年 4 月，党中央、国务院决定交通大学' +
+            '由上海迁往西安；1955 年 5 月 25 日，时任校长彭康向全校师生宣布迁校决定。' +
+            '当年最响亮的口号是「到祖国最需要的地方去」。',
+      source: '据《交通大学西迁记》《「西迁精神」的由来与内涵》（人民网·党史频道）'
+    },
+    photo: {
+      knowledge: '1956 年西安新校址还是一片工地，照片里的师生在荒地上建起了校园。',
+      body: '迁校之初，西安新校址的教室、宿舍、实验室都在紧张建设。师生们一边上课，' +
+            '一边参加建校劳动：平整土地、搬运建材、种树修路。这些老照片记录下了' +
+            '「在荒地上办出一所好大学」的过程。',
+      source: '据西迁时期照片资料'
+    },
+    envelope: {
+      knowledge: '家书里最常见的一句是「我在西安很好，不用挂念」。',
+      body: '西迁的师生大多来自上海及南方各地，初到西北，气候、饮食、生活习惯都要重新适应。' +
+            '那时通讯不便，家书是与家人唯一的联系。很多人报喜不报忧，把困难留在自己这里，' +
+            '只把「一切都好」寄回家。',
+      source: '据西迁老同志回忆'
+    },
+    lamp: {
+      knowledge: '西迁初期经常停电，煤油灯下照样备课、批改、算数据。',
+      body: '建校初期电力供应不稳定，晚上常停电。煤油灯、马灯成了宿舍和办公室的常备物。' +
+            '不少老教授回忆：白天上课、下工地，晚上就在灯下写讲义、改作业。' +
+            '「艰苦创业」四个字，就是这样的日常。',
+      source: '据西迁老教授回忆'
+    }
+  };
+
+  /* ==========================================================================
+   * 一点六、答题复活题库
+   * --------------------------------------------------------------------------
+   * 底栏满了不是直接判死，而是给一道西迁知识题：
+   *   答对 → 复活，移出底栏若干件物品，继续打
+   *   答错 → 这局结束（但可以立刻再来一局）
+   * 每题结构：
+   *   q        题干
+   *   options  选项（2~4 个）
+   *   answer   正确选项的下标（从 0 开始）
+   *   explain  答完之后的解析（不管对错都显示）
+   * 想加题，往这个数组里塞就行，其他代码不用动。
+   * ========================================================================*/
+  const QUIZ_BANK = [
+    {
+      q: '党中央、国务院决定交通大学由上海迁往西安，是在哪一年？',
+      options: ['1949 年', '1955 年', '1966 年', '1978 年'],
+      answer: 1,
+      explain: '1955 年 4 月，党中央、国务院作出交通大学迁往西安的决定；' +
+               '同年 5 月 25 日，时任校长彭康向全校师生宣布迁校决定。'
+    }
+    // 例题先放一道，后续继续往这里加题即可。
+    // 例如：
+    // { q: '……？', options: ['A', 'B'], answer: 0, explain: '……' }
+  ];
+
+  /* ==========================================================================
+   * 二、关卡配置（本版只做 1 关，但结构上能加第 2 关，不要写死）
+   * --------------------------------------------------------------------------
+   * tilePool：本关使用的牌面池，是 TILES 的子集（这里直接用全部 8 种）。
+   * total   ：总张数，必须是 3 的倍数，否则永远消不完、出不来胜利画面。
+   * layers  ：层数。      slots：下方格子数（羊了个羊是 7 格）。
+   * shrink  ：逐层向中心收缩的格数。
+   * encode  ：发牌方式，这是本版的难度总开关 ——
+   *           'solvable-revive' = 保证可解 + 必定要复活一次（推荐）：
+   *                        牌局保证有解，但**任何打法都至少要爆一次底栏**，
+   *                        必须在复活时移出底栏物品才能继续，复活后一定走得完。
+   *           'solvable' = 保证可解，但不强制复活。
+   *           'random'   = 纯随机洗牌（第一版的做法）：不保证有解，可能开局就必死。
+   * opening ：开局放出来的可点张数【上限】。开局能点多少张直接决定爽感，
+   *           所以这里给的是上限（越大越爽），摆牌时会尽量靠近它。
+   * offset  ：层间错位。1 = 每层错开 1 格（牌堆高、开局可点多、爽）；
+   *           2 = 每层错开 2 格（挡得狠、开局可点少、压抑）。这个数字很影响手感。
+   * revive  ：复活配置。{ times: 允许复活次数, remove: 复活时从底栏移出几张 }
+   * 每种图案的张数 = total / tilePool.length，要求它是 3 的倍数。
+   *   10 种 × 12 张 = 120 张 → 每种 12 张，12 是 3 的倍数 ✔
+   * ========================================================================*/
+  const LEVELS = [
+    {
+      name: '第一关 · 西迁行囊',
+      tilePool: TILES,             // 10 种
+      total: 120,                  // 120 张 = 10 种 × 12 张
+      layers: 4,                   // 4 层
+      slots: 7,                    // 7 个格子（牌变多了，底栏也放宽 1 格）
+      shrink: 2,                   // 逐层向中心收 2 格
+      encode: 'ramp',              // 前半段保证好解、后半段上难度（见 dealRamp）
+      opening: 18,                 // 开局可点的上限。实测 12 会直接堵死（只够填满底栏、凑不出三张），18 是安全下限
+      offset: 1,                   // 层间错开 1 格 → 牌堆高、开局能点的多
+      revive: { times: 1, remove: 3 }, // 能复活 1 次，复活时从底栏移出 3 件物品
+      // 前几成算「前半段」：这一段会严格保证每一步都轻松（占用低），
+      // 后面的段落才逐步加码 —— 玩家前半段点得爽，后半段开始烧脑。
+      easyRatio: 0.3,              // 只有前 30% 是「轻松段」，后面全要算
+      // 后半段最多允许底栏占几格（越小越松、越大越紧）。上限是 slots - 1。
+      hardOccupancy: 6,
+      // 伪装三张：后半段顺带造几个「两张在明面、第三张深埋」的坑
+      decoys: 0,                   // 关掉：对难度几乎无影响，却会拖慢开局
+      decoyMaxDanger: 14,
+      tip: '前半段随便点都顺，后半段要算着点；卡住了能复活一次。'
+    }
+    // 以后要加第二关，照抄一份改数字即可，例如：
+    // { name: '第二关 · 西迁路上', tilePool: TILES.slice(0, 8), total: 144,
+    //   layers: 5, slots: 7, shrink: 2, encode: 'ramp',
+    //   opening: 40, offset: 1, revive: { times: 1, remove: 3 }, tip: '……' }
+  ];
+
+  /* ==========================================================================
+   * 三、棋盘参数（「整齐」的关键）
+   * --------------------------------------------------------------------------
+   * 把游戏区域划分成 24×24 的虚拟网格（像棋盘），每张牌占 3×3 个格子。
+   * 牌的位置只用【整数格坐标】，所以所有重叠的边界都落在格线上，
+   * 玩家一眼就能看出谁压着谁。
+   * 绝对禁止随机像素坐标撒点 —— 那会让牌糊成一团、看不清压叠关系。
+   * ========================================================================*/
+  const BOARD_CELLS = 24;                     // 棋盘 24×24 格
+  const TILE_CELLS = 3;                       // 每张牌占 3×3 格
+  const GRID_MAX = BOARD_CELLS - TILE_CELLS;  // 牌左上角坐标的最大值 = 21
+
+  /* ==========================================================================
+   * 四、工具函数
+   * ========================================================================*/
+
+  // Fisher-Yates 洗牌（原地打乱数组）
+  function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+    return arr;
+  }
+
+  function randInt(min, max) { // 含两端
+    return min + Math.floor(Math.random() * (max - min + 1));
+  }
+
+  /* ==========================================================================
+   * 五、发牌
+   * --------------------------------------------------------------------------
+   * 两种模式，由关卡的 encode 决定：
+   *
+   * ① 'random' 纯随机洗牌（第一版做法）
+   *    每种图案等量填进数组 → Fisher-Yates 打乱 → 按生成顺序贴上去。
+   *    和「羊了个羊」原版、多数复刻版一致，但【不保证有解】，可能开局就必死。
+   *
+   * ② 'solvable' 保证可解（推荐）
+   *    先设计一条「通关路线」，再按这条路线倒推着贴图案，所以每一局都一定能赢。
+   *    具体做法见 dealSolvable()。
+   * ========================================================================*/
+
+  // 纯随机洗牌发牌（不保证有解）
+  function buildTileKinds(level) {
+    const kinds = level.tilePool;
+    const perKind = Math.floor(level.total / kinds.length); // 每种图案的份数
+    const list = [];
+    for (let i = 0; i < kinds.length; i++) {
+      for (let n = 0; n < perKind; n++) list.push(kinds[i].id);
+    }
+    return shuffleArray(list);
+  }
+
+  /**
+   * 按着一条点击顺序真实走一遍，算出卡槽最多同时占几个格子。
+   *
+   * 为什么不用公式推：卡槽占用要看「已经露出、但还没凑齐三张」的图案有几个，
+   * 但三张一凑齐就立刻消掉，边界情况容易算错。
+   * 这里干脆和游戏里一样，一张一张往卡槽里放、凑齐三张就消掉，
+   * 数出来的就是玩家真正会遇到的最大占用，也正好当作「保证可解」的凭据。
+   *
+   * @param {number[]} typeAt typeAt[点击序号] = 图案编号
+   * @param {number} kindCount 图案种类数（只用来校验，不参与计算）
+   */
+  function slotProfile(typeAt, kindCount) {
+    const occ = [];   // 每一步的卡槽占用
+    const slot = [];  // 模拟的卡槽
+    let peak = 0, peakAt = -1;
+    for (let p = 0; p < typeAt.length; p++) {
+      slot.push(typeAt[p]);
+      // 和游戏里一样：凑齐 3 张同样的就消掉，后面的往前补位
+      let killed = true;
+      while (killed) {
+        killed = false;
+        const count = {};
+        for (let i = 0; i < slot.length; i++) count[slot[i]] = (count[slot[i]] || 0) + 1;
+        for (const k in count) {
+          if (count[k] >= 3) {
+            let need = 3;
+            for (let i = slot.length - 1; i >= 0 && need > 0; i--) {
+              if (String(slot[i]) === k) { slot.splice(i, 1); need--; }
+            }
+            killed = true;
+            break;
+          }
+        }
+      }
+      occ.push(slot.length);
+      if (slot.length > peak) { peak = slot.length; peakAt = p; }
+    }
+    return { occ: occ, peak: peak, peakAt: peakAt };
+  }
+
+  /**
+   * 保证可解的发牌器。
+   *
+   * 输入是牌堆的「摆放顺序」（从最上面一层往下摆的，所以它反过来就是一条
+   * 天然合法的点击顺序：每一张被点时，压着它的牌都已经被点走了）。
+   *
+   * 我们要做的就是给这条顺序里的每个位置分配图案编号，让：
+   *   ① 每种图案正好出现 3 次（这样三张一凑就能消掉）；
+   *   ② 按这条顺序点击时，卡槽占用从不超过格子数 —— 也就是真的能走通。
+   *
+   * 分配办法：先按「目标峰值」算出该在第几步开一个新图案，
+   * 新图案往后占 3 个位置，再把图案编号随机分配给这些位置。
+   * 这样每条路线都会在指定的步数上开到指定的卡槽压力，
+   * 难度是【设计出来的】，而不是靠运气。
+   *
+   * @param {number} n 总张数（必须是 3 的倍数）
+   * @param {number} kindCount 图案种类数
+   * @param {number} slotCap 卡槽格子数
+   * @param {number} targetPeak 想要的卡槽峰值（留出余量玩家才有得选）
+   */
+  function dealSolvable(n, kindCount, slotCap, targetPeak) {
+    const groups = n / 3; // 一共多少组三张（72 张 → 24 组）
+    if (groups % kindCount !== 0) return null;
+
+    /* 铺法：贪心地「尽量多开几个图案、让它们同时占着卡槽」，
+     * 把卡槽占用推高到目标峰值 —— 这样难度才是设计出来的，而不是碰运气。
+     * 每一步都保证占用不超过目标值，所以这条路线一定走得通。 */
+    const typeAt = new Array(n).fill(-1);
+    const groupsIdx = [];   // groupsIdx[k] = 第 k 个图案已经用掉的位置
+    for (let k = 0; k < groups; k++) groupsIdx.push([]);
+    let openCount = 0;      // 当前有几个图案「已经露过面但还没凑齐」
+    const target = Math.max(3, Math.min(targetPeak, slotCap));
+
+    for (let i = 0; i < n; i++) {
+      let best = -1;
+
+      // ① 能把「已经有 2 张」的图案收尾就立刻收尾 → 它随即消掉，占用降下来
+      for (let k = 0; k < groups; k++) {
+        if (groupsIdx[k].length === 2) { best = k; break; }
+      }
+      // ② 否则，只要占用还没到目标，就再开一个新图案 → 占用升上去（这是难度的来源）
+      if (best < 0 && openCount < target) {
+        for (let k = 0; k < groups; k++) {
+          if (groupsIdx[k].length === 0) { best = k; break; }
+        }
+      }
+      // ③ 占用已经到顶了，只能往「已经有 1 张」的图案里补一张（占用不变，稍后再补满）
+      if (best < 0) {
+        for (let k = 0; k < groups; k++) {
+          if (groupsIdx[k].length === 1) { best = k; break; }
+        }
+      }
+      // ④ 还是不行就随便找个没收尾的
+      if (best < 0) {
+        for (let k = 0; k < groups; k++) {
+          if (groupsIdx[k].length > 0 && groupsIdx[k].length < 3) { best = k; break; }
+        }
+      }
+      if (best < 0) return null; // 拼不出来了，交给上层重试
+      groupsIdx[best].push(i);
+      typeAt[i] = best;
+      // 重新算一下当前有几个图案还没凑齐
+      openCount = 0;
+      for (let k = 0; k < groups; k++) {
+        if (groupsIdx[k].length > 0 && groupsIdx[k].length < 3) openCount++;
+      }
+    }
+
+    // 校验：每组正好 3 张
+    for (let k = 0; k < groups; k++) if (groupsIdx[k].length !== 3) return null;
+    const counts = new Array(groups).fill(0);
+    for (let i = 0; i < n; i++) {
+      if (typeAt[i] < 0 || typeAt[i] >= groups) return null;
+      counts[typeAt[i]]++;
+    }
+    for (let k = 0; k < groups; k++) if (counts[k] !== 3) return null;
+
+    // 校验：这条路线上的卡槽占用从不超过格子数（这是「保证可解」的凭据）
+    const prof = slotProfile(typeAt, groups);
+    if (prof.peak > slotCap) return null;
+
+    // 把「组编号」随机映射到真正的图案上。
+    // groups（24 组）是图案种类数（8 种）的整数倍，
+    // 所以「轮流发 + 整体打乱」之后每种图案的组数完全相等。
+    const kindOfGroup = [];
+    for (let k = 0; k < groups; k++) kindOfGroup.push(k % kindCount);
+    shuffleArray(kindOfGroup);
+
+    // 输出：一条通关路线 + 每组对应的图案
+    return {
+      typeAt: typeAt,           // typeAt[点击序号] = 组编号
+      groupKind: kindOfGroup,   // groupKind[组编号] = 图案 id
+      peak: prof.peak           // 这条路线上的卡槽峰值
+    };
+  }
+
+
+  /**
+   * 「前半段轻松、后半段上难度」的发牌器（本版主用）。
+   *
+   * 思路：
+   *   把整条通关路线切成两段 ——
+   *   前半段：每一步都只允许底栏占很少的格子（占用低），随便点都顺，
+   *          保证「前半段一定好解」；
+   *   后半段：逐步把允许的占用抬高到上限附近，逼玩家算着点，
+   *          同时在这里多开几个图案（让同款分散），难度自然上来。
+   *
+   * 关键：整条路线从第一步到最后一步，占用永远不超过格子数，
+   *      所以【整局一定可解】；而前半段额外满足「占用 ≤ 低阈值」，
+   *      所以【前半段特别好解】。两件事同时成立，不互相打架。
+   *
+   * @param {number} n 总张数（3 的倍数）
+   * @param {number} kindCount 图案种类数
+   * @param {number} slotCap 底栏格子数
+   * @param {number} easyRatio 前半段占整局的比例（0~1）
+   * @param {number} hardOccupancy 后半段最多允许占几格
+   */
+  function dealRamp(n, kindCount, slotCap, easyRatio, hardOccupancy) {
+    const groups = n / 3;                          // 120 张 → 40 组
+    const perKind = groups / kindCount;            // 每种图案分到几组
+    if (perKind !== Math.floor(perKind)) return null;
+
+    const easyGroups = Math.round(groups * easyRatio);
+    const hardGroups = groups - easyGroups;
+
+    /* ---------- 位置：120 张正好占满 120 个位置，必须算准 ----------
+     * 前半段：组间距 2、三张跨度 3 → 第 j 组占 (2j, 2j+1, 2j+3)
+     *         这样相邻两组错开，占用不高但比「三张挨着」有意思。
+     * 后半段：接着往后排，组间距 3、三张跨度 3 → 三张紧挨，
+     *         但同款之间被拉得很开（靠下面的图案分配实现）。 */
+    const typeAt = new Array(n).fill(-1);
+    const place = function (base, pattern, idx) {
+      const ps = [base, base + 1, base + pattern];
+      for (let m = 0; m < 3; m++) {
+        const p = ps[m];
+        if (p < 0 || p >= n || typeAt[p] !== -1) return false;
+      }
+      for (let m = 0; m < 3; m++) typeAt[ps[m]] = idx;
+      return true;
+    };
+
+    /* 三张必须连续（组间距 3、跨度 2）：这是唯一不撞车、又能占满 120 个位置的摆法。
+     * 任何一组把三张拉开，需要的间距就会超过 3，位置立刻不够 —— 这是算出来的结论。 */
+    for (let j = 0; j < groups; j++) {
+      if (!place(j * 3, 2, j)) return null;
+    }
+    for (let i = 0; i < n; i++) if (typeAt[i] < 0) return null;
+
+    /* ---------- 图案分配：全局统一配额，一半「扎堆」一半「打散」 ---------- */
+    const easyQuota = new Array(kindCount).fill(0);
+    const hardQuota = new Array(kindCount).fill(0);
+    for (let k = 0; k < kindCount; k++) {
+      easyQuota[k] = Math.min(perKind, Math.floor(perKind * easyRatio) + (k % 2));
+      // 修正总数
+    }
+    // 把配额调成「前半段合计 = easyGroups」
+    let sum = 0;
+    for (let k = 0; k < kindCount; k++) sum += easyQuota[k];
+    let guard = 0;
+    while (sum > easyGroups && guard++ < 1000) {
+      for (let k = 0; k < kindCount && sum > easyGroups; k++) {
+        if (easyQuota[k] > 0) { easyQuota[k]--; sum--; }
+      }
+    }
+    while (sum < easyGroups && guard++ < 2000) {
+      for (let k = 0; k < kindCount && sum < easyGroups; k++) {
+        if (easyQuota[k] < perKind) { easyQuota[k]++; sum++; }
+      }
+    }
+    if (sum !== easyGroups) return null;
+    for (let k = 0; k < kindCount; k++) hardQuota[k] = perKind - easyQuota[k];
+
+    const kindOfGroup = new Array(groups).fill(-1);
+    const usedEasy = new Array(kindCount).fill(0);
+    const usedHard = new Array(kindCount).fill(0);
+
+    // 前半段：同一个图案连着给（同款扎堆 → 玩家点两下就凑齐）
+    for (let i = 0; i < easyGroups; ) {
+      let pick = -1;
+      for (let k = 0; k < kindCount; k++) if (usedEasy[k] < easyQuota[k]) { pick = k; break; }
+      if (pick < 0) return null;
+      const run = Math.min(easyQuota[pick] - usedEasy[pick], easyGroups - i);
+      for (let m = 0; m < run; m++) { kindOfGroup[i + m] = pick; usedEasy[pick]++; }
+      i += run;
+    }
+    // 后半段：轮着来，挨着的两组绝不同款（同款打散 → 得算着点）
+    let prev = kindOfGroup[easyGroups - 1];
+    for (let i = easyGroups; i < groups; i++) {
+      let pick = -1;
+      for (let off = 1; off <= kindCount; off++) {
+        const k = (prev + off) % kindCount;
+        if (usedHard[k] < hardQuota[k]) { pick = k; break; }
+      }
+      if (pick < 0) return null;
+      kindOfGroup[i] = pick;
+      usedHard[pick]++;
+      prev = pick;
+    }
+    for (let k = 0; k < kindCount; k++) {
+      if (usedEasy[k] + usedHard[k] !== perKind) return null;
+    }
+
+    // 真实走一遍，确认一定清空、占用不超标
+    let peak = 0;
+    {
+      const slot = [];
+      for (let i = 0; i < n; i++) {
+        slot.push(typeAt[i]);
+        let killed = true;
+        while (killed) {
+          killed = false;
+          const c = {};
+          for (let j = 0; j < slot.length; j++) c[slot[j]] = (c[slot[j]] || 0) + 1;
+          for (const kk in c) {
+            if (c[kk] >= 3) {
+              let need = 3;
+              for (let j = slot.length - 1; j >= 0 && need; j--) {
+                if (String(slot[j]) === kk) { slot.splice(j, 1); need--; }
+              }
+              killed = true; break;
+            }
+          }
+        }
+        if (slot.length > peak) peak = slot.length;
+        if (slot.length > slotCap) return null;
+      }
+      if (slot.length !== 0) return null;
+    }
+
+    return {
+      typeAt: typeAt,
+      groupKind: kindOfGroup,
+      peak: peak,
+      easyPeak: 0,
+      easyEnd: easyGroups * 3,
+      groups: groups
+    };
+
+    // 前半段覆盖到第几手
+    function cardEndOf(eg) {
+      return eg * 2 + 2;
+    }
+  }
+  /* ==========================================================================
+   * 六、几何与遮挡计算（核心，必须全平台可用）
+   * --------------------------------------------------------------------------
+   * 【绝对禁止】用 IntersectionObserver（尤其 trackVisibility 参数）。
+   * 那是 Chromium 私有特性，iPhone 的 Safari 会静默忽略，
+   * 结果就是所有牌都被判定成「能点」，游戏直接失去玩法。
+   *
+   * 正确做法：每张牌记两个字段 —— 层号 level（越大越靠上）、自身矩形范围。
+   *   ※ 矩形重叠 且 B.level > A.level  →  B 压住 A。
+   *   ※ 同层两张牌若矩形重叠，按「生成顺序」决定谁压谁：
+   *     生成顺序在后的那张在 DOM 里更靠后、显示在上层，所以它压住前面那张。
+   *   ※ 判断依据是「矩形重叠」，不是「完全盖住」。只要被别的牌压到一点点就点不了
+   *     —— 这和羊了个羊一致（半遮挡的牌也不能点）。
+   * 生成牌堆时就把「压住我的牌」名单算好存进 tile.blockedBy，
+   * 点击时只看 blockedBy 是否为空 → 空则可点。O(1)，不消耗性能。
+   * ========================================================================*/
+
+  /**
+   * 「必须复活一次」的发牌器。
+   *
+   * 目标：让这一局无论谁打、怎么打，都至少会把卡槽塞满一次 → 触发复活；
+   *       而且复活之后，剩下的牌【一定】还能清空（完美打法只复活这一次）。
+   *
+   * 做法分两段：
+   *   ① 前 (格子数 + 1) 个位置，各放一个【不同图案】的第一张。
+   *      三张才算一组，所以这时候一张都消不掉，卡槽必然被塞爆 —— 强制复活。
+   *      这一步和玩家怎么点无关：他要塞满卡槽，手里就只能是这 7 个图案。
+   *   ② 其余位置用「有 2 张就收尾、否则补 1 张、都没有才开新图案」的节奏铺，
+   *      并且不许把卡槽顶到上限 —— 于是复活清出位置后，剩下的牌一定能走完。
+   *
+   * 构造过程本身也模拟了一遍卡槽（和游戏里完全一样的规则），
+   * 所以「复活次数」「峰值」都是真实数据，不是估的。
+   *
+   * @param {number} n 总张数（3 的倍数）
+   * @param {number} kindCount 图案种类数
+   * @param {number} slotCap 卡槽格子数
+   * @param {number} reviveRemove 复活时从底栏移出几张
+   */
+  function dealForcedRevive(n, kindCount, slotCap, reviveRemove) {
+    const groups = n / 3;
+    if (groups % kindCount !== 0) return null;
+
+    /* 前缀 = 开局就摊在玩家眼前的那几张（由 generateBoard 放到最上层）。
+     * 排布：slotCap 个【不同图案】各 1 张，再加 1 张重复图案。
+     *   前 slotCap 张进底栏，各占一格；
+     *   第 slotCap+1 张（重复的那张）进底栏时凑不成三张 → 底栏塞满 → 强制复活。
+     * 玩家一开始能点的牌有限，躲不开这一步。 */
+    const prefixLen = slotCap + 1;
+    if (prefixLen >= groups || prefixLen >= n) return null;
+
+    const typeAt = new Array(n).fill(-1);
+    for (let i = 0; i < slotCap; i++) typeAt[i] = i;
+    typeAt[slotCap] = 0;                          // 重复的那张（爆格靠它）
+
+    /* 尾部顺序很关键 —— 要跟着「复活会移出底栏最后几张」来排：
+     *   复活移出的是底栏最后 reviveRemove 张 = 前缀里最后那几个图案（这里是
+     *   图案 slotCap-1、slotCap-2 … 以及重复的图案 0）。
+     *   这些图案在前缀里的那张被移走了，所以它们【剩下两张】必须紧跟着补完，
+     *   而且不能再被移出 —— 所以放在最前面、成组补齐。 */
+    let pos = prefixLen;
+    const casualties = [];                        // 会被复活移出牌的图案
+    for (let r = 1; r <= reviveRemove; r++) {
+      const g = (slotCap - r + groups) % groups;  // slotCap-1, slotCap-2, ...
+      if (casualties.indexOf(g) < 0) casualties.push(g);
+    }
+    if (casualties.indexOf(0) < 0 && reviveRemove > 0) casualties.push(0);
+
+    // ① 先把「前缀里的图案」剩下的牌补完（每组补到 3 张），两两相邻
+    for (let i = 0; i < slotCap; i++) {
+      const g = i;
+      let inPrefix = 0;
+      for (let p = 0; p < prefixLen; p++) if (typeAt[p] === g) inPrefix++;
+      for (let m = inPrefix; m < 3; m++) {
+        while (pos < n && typeAt[pos] !== -1) pos++;
+        if (pos >= n) return null;
+        typeAt[pos++] = g;
+      }
+    }
+
+    // ② 其余图案：每组 3 张连续（点完就消，占用极低）
+    for (let g = prefixLen; g < groups; g++) {
+      for (let m = 0; m < 3; m++) {
+        while (pos < n && typeAt[pos] !== -1) pos++;
+        if (pos >= n) return null;
+        typeAt[pos++] = g;
+      }
+    }
+
+    // ---- 校验 + 真实模拟 ----
+    const cnt = {};
+    for (let i = 0; i < n; i++) {
+      if (typeAt[i] < 0) return null;
+      cnt[typeAt[i]] = (cnt[typeAt[i]] || 0) + 1;
+    }
+    for (const g in cnt) if (cnt[g] !== 3) return null;
+
+    const final = simulateDeal(typeAt, slotCap, reviveRemove);
+    if (!final || final.revives !== 1 || !final.cleared) return null;
+    if (final.spoiled && final.spoiled.length) return null;
+
+    const kindOfGroup = [];
+    for (let g = 0; g < groups; g++) kindOfGroup.push(g % kindCount);
+    shuffleArray(kindOfGroup);
+
+    return {
+      typeAt: typeAt,
+      groupKind: kindOfGroup,
+      peak: final.peak,
+      revives: final.revives,
+      firstReviveAt: final.firstReviveAt,
+      prefixLen: prefixLen            // generateBoard 靠它把这几张放到最上层
+    };
+  }
+
+  /**
+   * 把一条「点击顺序」当成真实牌局走一遍（和游戏里完全一样的规则）。
+   * 返回峰值 / 复活次数 / 复活点，以及被复活「弄残」的图案名单：
+   * 一个图案如果在复活点之前已经被点过牌，之后还有牌留在棋盘上，它就永远凑不齐。
+   */
+  function simulateDeal(typeAt, slotCap, reviveRemove) {
+    const n = typeAt.length;
+    const slot = [];
+    let revives = 0, peak = 0, peakAt = -1, firstReviveAt = -1;
+
+    const total = {};                       // 每个图案一共几张
+    for (let i = 0; i < n; i++) {
+      if (typeAt[i] >= 0) total[typeAt[i]] = (total[typeAt[i]] || 0) + 1;
+    }
+    const played = {};                      // 每个图案已经点过几张
+    const spoiled = [];
+
+    for (let i = 0; i < n; i++) {
+      slot.push(typeAt[i]);
+      played[typeAt[i]] = (played[typeAt[i]] || 0) + 1;
+      if (slot.length > peak) { peak = slot.length; peakAt = i; }
+      let killed = true;
+      while (killed) {
+        killed = false;
+        const c = {};
+        for (let j = 0; j < slot.length; j++) c[slot[j]] = (c[slot[j]] || 0) + 1;
+        for (const k in c) {
+          if (c[k] >= 3) {
+            let need = 3;
+            for (let j = slot.length - 1; j >= 0 && need; j--) {
+              if (String(slot[j]) === k) { slot.splice(j, 1); need--; }
+            }
+            killed = true;
+            break;
+          }
+        }
+      }
+      if (slot.length > slotCap) {
+        revives++;
+        if (firstReviveAt < 0) firstReviveAt = i;
+        for (let j = 0; j < reviveRemove && slot.length; j++) {
+          const dead = slot.pop();
+          // 这个图案：已经点过的张数 > 底栏里剩下的张数 → 有几张被移出、永远没了
+          const stillHere = [];
+          for (let m = 0; m < slot.length; m++) if (slot[m] === dead) stillHere.push(m);
+          const remainOnBoard = (total[dead] || 0) - (played[dead] || 0);
+          if (remainOnBoard > 0 && (played[dead] || 0) > stillHere.length) {
+            // 有牌在复活点之前点掉了、棋盘上却还有它的牌 → 残了
+            if (spoiled.indexOf(dead) < 0) spoiled.push(dead);
+          }
+        }
+      }
+    }
+    return {
+      peak: peak, peakAt: peakAt, revives: revives,
+      firstReviveAt: firstReviveAt, cleared: slot.length === 0,
+      spoiled: spoiled
+    };
+  }
+
+  /* ==========================================================================
+   * 六、几何与遮挡计算（接着上面讲）
+   * ========================================================================*/
+
+  // 两张牌的矩形是否相交（用整数格坐标）
+  function rectsOverlap(a, b) {
+    return a.x < b.x + TILE_CELLS && b.x < a.x + TILE_CELLS &&
+           a.y < b.y + TILE_CELLS && b.y < a.y + TILE_CELLS;
+  }
+
+  // 新牌相对「同一层」已有牌露在外面的面积（用于生成时判断挤不挤）
+  function visibleAreaFor(nx, ny, placed) {
+    const cand = { x: nx, y: ny };
+    let hidden = 0;
+    for (let i = 0; i < placed.length; i++) {
+      const p = placed[i];
+      if (!rectsOverlap(cand, p)) continue;
+      const ox = Math.min(nx + TILE_CELLS, p.x + TILE_CELLS) - Math.max(nx, p.x);
+      const oy = Math.min(ny + TILE_CELLS, p.y + TILE_CELLS) - Math.max(ny, p.y);
+      hidden += ox * oy;
+    }
+    const visible = TILE_CELLS * TILE_CELLS - Math.min(hidden, TILE_CELLS * TILE_CELLS);
+    return { visible: visible, fullyHidden: visible <= 0 };
+  }
+
+  /**
+   * 数一张牌「露在外面的格数」。
+   * 只看层号 >= 它的牌（比它低的压不着它），把被盖住的格子去重后数一遍。
+   * @param {{x:number,y:number,level:number}} t 待检查的牌
+   * @param {Array} board 已经放好的牌
+   */
+  function visibleCellsOf(t, board) {
+    const hidden = {};
+    let hiddenCount = 0;
+    for (let j = 0; j < board.length; j++) {
+      const o = board[j];
+      if (o === t || o.level < t.level) continue; // 比我低的压不着我
+      if (!rectsOverlap(t, o)) continue;
+      const ox0 = Math.max(t.x, o.x), ox1 = Math.min(t.x + TILE_CELLS, o.x + TILE_CELLS);
+      const oy0 = Math.max(t.y, o.y), oy1 = Math.min(t.y + TILE_CELLS, o.y + TILE_CELLS);
+      for (let gx = ox0; gx < ox1; gx++) {
+        for (let gy = oy0; gy < oy1; gy++) {
+          const k = gx + ',' + gy;
+          if (!hidden[k]) { hidden[k] = true; hiddenCount++; }
+        }
+      }
+    }
+    return TILE_CELLS * TILE_CELLS - hiddenCount;
+  }
+
+  /**
+   * 检查「把一张牌放在 (x,y,level)」这件事会不会让谁彻底看不见。
+   *
+   * 三个方向都要查：
+   *   ① 这张牌自己会不会被（已经放好的、层号 >= 它的）牌盖住太多；
+   *   ② 这张牌会不会把下面几层已经放好的牌盖住太多（把它压成看不见）；
+   *   ③ 这张牌会不会把同一层已经放好的牌盖住太多
+   *      （同层的牌互相都能压，谁后放谁在上面，所以要特别照顾先放的那张）。
+   * 只要有任何一张牌露得太少，这个位置就不能选。
+   *
+   * @param {number} x,y,level 准备放的位置
+   * @param {Array} board 已经放好的牌
+   * @param {number} selfMin 这张牌自己至少要露几格
+   * @param {number} otherMin 已经有牌至少要保留几格（别被压得看不见）
+   */
+  function checkPlacement(x, y, level, board, selfMin, otherMin) {
+    const cand = { x: x, y: y, level: level, id: -1 };
+    const rest = [];
+    for (let i = 0; i < board.length; i++) {
+      if (rectsOverlap(cand, board[i])) rest.push(board[i]); // 只有和它重叠的牌会受影响
+    }
+
+    // ① 自己露几格：只看重叠的那些牌就够了（不重叠的一个格子也盖不着）
+    const selfVis = visibleCellsOf(cand, rest);
+    if (selfVis < selfMin) return { selfVisible: selfVis, ok: false };
+
+    // ② 已经有牌要保留几格。
+    //    注意：必须把「这张新牌 + 已经放好的所有牌」一起算，
+    //    因为一张牌可能是被好几张牌【加起来】才盖住的，
+    //    只跟新牌单独比会漏判，最后就会出现一张谁都看不见的牌。
+    const withCand = board.concat([cand]);
+    for (let i = 0; i < rest.length; i++) {
+      const b = rest[i];
+      if (visibleCellsOf(b, withCand) < otherMin) return { selfVisible: selfVis, ok: false };
+    }
+
+    return { selfVisible: selfVis, ok: true };
+  }
+
+  // 生成牌堆时就把「压住我的牌」名单算好（点击时只查这个名单）
+  function computeBlocked(board) {
+    for (let i = 0; i < board.length; i++) board[i].blockedBy.length = 0;
+
+    // board 已经排成「从下到上」的顺序（见 generateBoard），所以：
+    //   下标更大的牌 = 显示在更上面 = 压住它
+    for (let i = 0; i < board.length; i++) {
+      const upper = board[i];
+      for (let j = 0; j < i; j++) {
+        const lower = board[j];
+        if (!rectsOverlap(upper, lower)) continue; // 矩形不重叠 → 压不着
+        if (upper.level < lower.level) continue;   // 层号更小 → 不压
+        // 走到这里：重叠 且（层号更大 或 同层但编号更靠后）→ upper 压住 lower
+        lower.blockedBy.push(upper.id);
+      }
+    }
+  }
+
+  /* ==========================================================================
+   * 六点五、伪装三张（诱饵）
+   * --------------------------------------------------------------------------
+   * 这是「逼玩家在底栏里做取舍」的核心手段。
+   *
+   * 做法：挑几个图案，把它们的【两张】放到「摆放顺序的末尾」——
+   *   摆放是从最上层往下摆的，所以顺序越靠后 = 层号越高 = 玩家越先能点到；
+   *   把第三张放到「摆放顺序的开头」= 层号最低 = 埋在最底下，很晚才挖得出来。
+   * 于是玩家一开局就看到两张火车票亮着，手一快收进底栏，第三张却远在天边。
+   * 底栏只有 6 格，收两个诱饵就废掉三分之一。
+   *
+   * 注意：这只改「图案贴在哪张牌上」，每个图案依然是 3 张、棋盘也没变，
+   * 所以发牌器算好的那条通关路线依然成立（收满三张就消）。
+   * 变难的只是玩家【忍住不点】。
+   * ========================================================================*/
+
+  // 给每个摆放位次算一个「亮眼程度」：层号越高、玩家越早能点到 → 越亮眼。
+  // 注意：board 的数组顺序是「从下到上」（id 越大越靠上），
+  // 而「点击顺序」是它的倒序 —— 所以位次越靠【后】，玩家越早看到。
+  function scoreVisibility(board) {
+    const n = board.length;
+    let maxLevel = 1;
+    for (let i = 0; i < n; i++) if (board[i].level > maxLevel) maxLevel = board[i].level;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const t = board[i];
+      const blockers = t.blockedBy ? t.blockedBy.length : 0;
+      // 亮眼程度 = 离「一开始就能点」有多近：
+      //   没牌压着（blockers=0）→ 1；压它的牌越多 → 越小
+      const freeScore = 1 / (1 + blockers * 0.5);
+      const levelScore = t.level / maxLevel;      // 层号越高，露出来的机会越大
+      const orderScore = i / Math.max(1, n - 1);  // 摆放越靠后 = 越靠上
+      out.push({
+        idx: i,
+        score: 0.5 * freeScore + 0.3 * levelScore + 0.2 * orderScore
+      });
+    }
+    return out;
+  }
+
+  /**
+   * 给牌堆贴「伪装三张」：把若干图案做成「两张摆在明面上、第三张深埋」。
+   *
+   * 做法：把某个图案的 3 张牌【重新指派】到 3 个位置 ——
+   *   两张放到亮眼程度最高的空位（玩家一开局就看得见），
+   *   第三张放到「第二章亮眼位之后第 danger 个」的位置（隔一段才挖得到）。
+   * 被顶掉的那三个位置上的图案，拿走诱饵原来的三个位置，
+   * 所以每种图案的张数依然是 3 张、棋盘也没变。
+   *
+   * @param {Array} board 牌堆（已排好序、已贴好图案）
+   * @param {number} decoyCount 想造几个诱饵图案
+   * @param {number} maxDanger 探测成本上限（明面那张与深埋那张之间隔几手）
+   * @returns {number} 实际造出来的诱饵个数
+   */
+  function applyDecoys(board, decoyCount, maxDanger, slotCap) {
+    if (!decoyCount || decoyCount <= 0) return 0;
+    const cap = (typeof slotCap === 'number' && slotCap > 0) ? slotCap : 6;
+    const n = board.length;
+
+    /* 关键：board 的数组顺序是「从下到上」，而玩家从【最上面】开始点，
+     * 所以「设计路线第 s 手」对应的数组下标是 n-1-s。
+     * 下面全部在「第几手」这个坐标系里算，避免方向搞反。 */
+    const posAt = function (step) { return n - 1 - step; };
+    const kindAt = function (step) { return board[posAt(step)].kind; };
+
+    const kinds = [];
+    for (let i = 0; i < TILES.length; i++) kinds.push(TILES[i].id);
+
+    const profileOf = function (getKind) {
+      const slot = [];
+      const v = new Array(n).fill(0);
+      for (let s = 0; s < n; s++) {
+        slot.push(getKind(s));
+        let killed = true;
+        while (killed) {
+          killed = false;
+          const c = {};
+          for (let j = 0; j < slot.length; j++) c[slot[j]] = (c[slot[j]] || 0) + 1;
+          for (const kk in c) {
+            if (c[kk] >= 3) {
+              let need = 3;
+              for (let j = slot.length - 1; j >= 0 && need; j--) {
+                if (String(slot[j]) === kk) { slot.splice(j, 1); need--; }
+              }
+              killed = true; break;
+            }
+          }
+        }
+        v[s] = slot.length;
+      }
+      return v;
+    };
+    const isSafe = function () {
+      const v = profileOf(kindAt);
+      for (let s = 0; s < n; s++) if (v[s] > cap) return false;
+      return true;
+    };
+    const swap = function (a, b) { const tmp = board[a].kind; board[a].kind = board[b].kind; board[b].kind = tmp; };
+
+    // 亮眼程度换算到「手」坐标
+    const vis = scoreVisibility(board);
+    const byStep = [];
+    for (let s = 0; s < n; s++) byStep.push({ step: s, score: vis[posAt(s)].score });
+    byStep.sort(function (a, b) { return b.score - a.score; });
+
+    const bound = {};
+    const made = [];
+
+    for (let k = 0; k < kinds.length && made.length < decoyCount; k++) {
+      const tKind = kinds[k];
+      const freeSteps = [];                    // 这个图案「没被绑住」的那些手
+      for (let s = 0; s < n; s++) {
+        if (kindAt(s) !== tKind) continue;
+        if (bound[posAt(s)]) continue;
+        freeSteps.push(s);
+      }
+      if (freeSteps.length < 3) continue;
+
+      // 候选明面手：玩家最早看到的那些手
+      const cand = [];
+      for (let i = 0; i < byStep.length && cand.length < 24; i++) {
+        const s = byStep[i].step;
+        if (bound[posAt(s)]) continue;
+        if (freeSteps.indexOf(s) >= 0) continue;   // 不能用它自己已有的位置来当「诱饵位」
+        cand.push(s);
+      }
+      if (cand.length < 2) continue;
+
+      /* 伪装三张的真髓：把同款的【两张】摆到明面上，另【两张】挪到很后面去。
+       * 14 张原始副本里：
+       *   1 张 → 明面甲（玩家一眼看到）
+       *   1 张 → 明面乙（再一眼，两张同款摆在那儿）
+       *   2 张 → 挪到很后面（继续勾着玩家）
+       *   剩 5 张 → 原地不动（保证这张牌还是解得开的）
+       * 只要每次搬完，照设计路线走一遍底栏都不超标，就采纳。 */
+      let chosen = null;
+      for (let a = 0; a < cand.length && !chosen; a++) {
+        for (let b = a + 1; b < cand.length && !chosen; b++) {
+          const s1 = cand[a], s2 = cand[b];
+          if (Math.abs(s1 - s2) > maxDanger) continue;
+          // 挑两张「离得最远、又没被绑」的原位置挪到后面
+          const pool = freeSteps.filter(function (s) { return s > s2 + maxDanger; });
+          if (pool.length < 2) continue;
+          for (let c = 0; c < pool.length && !chosen; c++) {
+            for (let d = c + 1; d < pool.length && !chosen; d++) {
+              const f1 = posAt(pool[c]), f2 = posAt(pool[d]);
+              if (bound[f1] || bound[f2]) continue;
+              swap(posAt(s1), f1);
+              swap(posAt(s2), f2);
+              if (isSafe()) {
+                chosen = { p1: posAt(s1), p2: posAt(s2), s1: s1, s2: s2 };
+              } else {
+                swap(posAt(s1), f1); swap(posAt(s2), f2);
+              }
+            }
+          }
+        }
+      }
+      if (!chosen) continue;
+
+      bound[chosen.p1] = true; bound[chosen.p2] = true;
+      made.push({
+        kind: tKind,
+        high: [chosen.p1, chosen.p2],
+        low: -1,
+        danger: Math.abs(chosen.s1 - chosen.s2)
+      });
+    }
+
+    board.decoys = made;
+    return made.length;
+  }
+
+  /* ==========================================================================
+   * 七、生成牌堆
+   * --------------------------------------------------------------------------
+   * 逐层生成，每往上生成一层，可用坐标范围就往中心收缩 shrink 格，
+   * 于是自然堆成「上小下大」的塔形，难度随层数递增。
+   *
+   * 生成策略：先给每层建一个「合法整数格坐标」的候选池（每层各算各的，
+   * 因为不同层放在同一个格坐标是正常叠放），然后【从最上面一层开始往下摆】。
+   * 为什么从上往下：摆下面几层时，所有会压住它的牌（更上面几层）都已经摆好了，
+   * 直接检查「这张放下去还剩几格露着」就行，绝不会出现被上面整张盖住、玩家看不见的牌。
+   *
+   * 挑位置时优先「身边空隙多、离棋盘中心近」的坐标，牌堆既整齐又有塔形。
+   * ========================================================================*/
+
+  // 某层的可用坐标范围（整数格坐标）。收得太狠放不下牌时返回 null。
+  function layerRange(layerIdx, shrink) {
+    const inset = layerIdx * shrink;
+    const lo = inset;
+    const hi = GRID_MAX - inset;
+    if (lo > hi) return null;
+    return { lo: lo, hi: hi };
+  }
+
+  /**
+   * 给一层挑「候选位置」。
+   * 先用步长 3 铺整齐的格阵（相邻两牌留缝、不重叠），
+   * 再退回步长 2 把新牌插进缝里（错半个身位，看起来像斜码上去的一摞），
+   * 最后退回步长 1 补缝 —— 保证收缩得很小的上层也能凑够候选，塔形不塌。
+   * 每一层内部都保证：任何一张牌都不会被本层别的牌整张盖住。
+   *
+   * 注意：这里【只看本层】，不同层放在同一个格坐标是完全合法的叠放，
+   *       所以候选位置每层各自独立算一遍，互不影响。
+   *
+   * @param {number} lo 坐标下界（含）
+   * @param {number} hi 坐标上界（含）
+   * @param {number} offset 本层整体错开几格。
+   *        这个值直接决定「开局有几张牌能点」：
+   *        各层完全对齐（offset 取整）时上层的牌正好压在下层同一位置，挡得最多；
+   *        错开半个身位（0.75 格）时，上层每张牌能压住下层好几张牌，
+   *        挡得多、又不会把任何一张牌完全藏住 —— 这是实测下来手感最好的一档。
+   */
+  function pickPositions(lo, hi, offset) {
+    const placed = [];
+    if (hi - lo + 1 < TILE_CELLS) return placed;
+    const limit = TILE_CELLS * TILE_CELLS * 0.5; // 本层内至少露出半张
+
+    const steps = [3, 2, 1];
+    for (let s = 0; s < steps.length; s++) {
+      const step = steps[s];
+      // 以 lo + offset 为原点，在 [lo, hi] 里按 step 铺格阵
+      // （offset 可能带小数，所以用 Math.round 落回整数格线）
+      const offInt = Math.round(offset);
+      const startX = lo + (((offInt % step) + step) % step);
+      const startY = lo + (((offInt % step) + step) % step);
+      for (let x = startX; x <= hi; x += step) {
+        for (let y = startY; y <= hi; y += step) {
+          const info = visibleAreaFor(x, y, placed);
+          if (info.visible < limit) continue; // 被本层别的牌盖得太多 → 这个位置不要
+          placed.push({ x: x, y: y });
+        }
+      }
+    }
+    return placed;
+  }
+
+  /**
+   * 生成牌堆。
+   *
+   * 思路：先把每层所有合法的整数格坐标收集成候选池（每层各算各的，
+   *       因为不同层放在同一个格坐标是正常叠放），
+   *       再全局按「缺牌最多的那层优先」来挑，保证每层都是精确的 18 张。
+   *
+   * 挑位置的打分（只影响好不好看，不影响玩法）：
+   *   ① 现在露在外面的格数（越露越多分越高，保证牌看得见）
+   *   ② 本层内周围空隙多不多（不跟本层别的牌挤在一起）
+   *   ③ 离棋盘中心的距离（越近越好，塔形更稳）
+   * ========================================================================*/
+
+  /* ---------- 按份额把一个层的额度切成金字塔形 ----------
+   * 越往上（层号越大）分到的张数越少：下面铺得密、上面叠得厚，
+   * 上层牌自然压住下层牌，开局露出来的可点张数就少了。
+   * tilt 越大越「上重下轻」，开局越紧。 */
+  function pyramidQuota(total, layers, caps, tilt) {
+    const ideal = [];
+    for (let L = 1; L <= layers; L++) ideal.push(Math.pow(1 - tilt, L - 1));
+
+    const quota = [];
+    let budget = total;
+    for (let L = 1; L <= layers; L++) {
+      let left = 0;
+      for (let j = L - 1; j < layers; j++) left += ideal[j];
+      const share = (ideal[L - 1] / left) * budget;
+      const want = Math.min(Math.round(share), caps[L - 1], budget);
+      quota.push(Math.max(0, want));
+      budget -= quota[L - 1];
+    }
+    // 还有额度的层把剩下的吸收掉
+    for (let pass = 0; pass < 3; pass++) {
+      for (let L = 1; L <= layers && budget > 0; L++) {
+        const room = caps[L - 1] - quota[L - 1];
+        if (room <= 0) continue;
+        const add = Math.min(room, budget);
+        quota[L - 1] += add;
+        budget -= add;
+      }
+    }
+    return quota;
+  }
+
+  /* ---------- 按给定的每层张数，把牌摆到 24×24 的整数格棋盘上 ----------
+   * 从【最上面一层往下摆】：摆到第 L 层时，所有会压住它的牌都已经摆好，
+   * 直接检查「这张放下去还剩几格露着」就行，永远不会出现谁也看不见的牌。
+   * 返回数组的顺序 = 摆放顺序，它的逆序就是一条天然合法的点击顺序。 */
+  function buildLayout(level, pools, quota) {
+    const layers = level.layers;
+    const total = level.total;
+    const shrink = typeof level.shrink === 'number' ? level.shrink : 2;
+    const board = [];
+
+    for (let L = layers; L >= 1; L--) {
+      const pool = pools[L - 1] || [];
+      let want = quota[L - 1];
+      let placedThisLayer = 0;
+      let minVis = 6; // 「至少露几格」的标准，位置不够用时会逐级放宽
+
+      while (placedThisLayer < want) {
+        let chosen = null, chosenScore = -Infinity;
+        for (let i = 0; i < pool.length; i++) {
+          const c = pool[i];
+          if (c.taken) continue;
+
+          // 上面几层已经摆好了，这张放下去自己还剩几格露着？
+          // 同时也别把已经摆好的牌（同层或下面几层）压得看不见。
+          const chk = checkPlacement(c.x, c.y, L, board, minVis, 3);
+          if (!chk.ok) continue;
+
+          const score = (c.stars + 1) * 300
+                      + Math.min(chk.selfVisible, TILE_CELLS * TILE_CELLS) * 20
+                      - Math.floor(c.dist)
+                      + Math.random() * 25; // 一点点随机，让每局长得都不一样
+          if (score > chosenScore) { chosenScore = score; chosen = c; }
+        }
+
+        if (chosen) {
+          chosen.taken = true;
+          board.push({ x: chosen.x, y: chosen.y, level: L });
+          placedThisLayer++;
+          continue;
+        }
+
+        if (minVis > 4) { minVis -= 2; continue; } // 放宽标准再试（最低 4 格，保证还认得出图案）
+        break; // 这一层真没位置了，少摆几张，总张数由下面兜底补齐
+      }
+    }
+
+    // 兜底补满，保证总张数精确（少一张就会有两种图案凑不成 3 张）
+    let guard = 0;
+    while (board.length < total && guard++ < 20000) {
+      let put = false;
+      for (let L = layers; L >= 1 && !put; L--) {
+        const range = layerRange(L - 1, shrink) || { lo: 0, hi: GRID_MAX };
+        for (let attempt = 0; attempt < 400 && !put; attempt++) {
+          const nx = randInt(range.lo, range.hi);
+          const ny = randInt(range.lo, range.hi);
+          let dup = false;
+          for (let k = 0; k < board.length; k++) {
+            if (board[k].level === L && board[k].x === nx && board[k].y === ny) { dup = true; break; }
+          }
+          if (dup) continue;
+          if (!checkPlacement(nx, ny, L, board, 1, 1).ok) continue;
+          board.push({ x: nx, y: ny, level: L });
+          put = true;
+        }
+      }
+      if (!put) break; // 实在放不下了（层数 / 张数配置太极端）
+    }
+
+    // 排成真正的「从下到上」顺序，并算好「压住我的牌」名单
+    const perLevelCount = {};
+    for (let i = 0; i < board.length; i++) {
+      const t = board[i];
+      perLevelCount[t.level] = (perLevelCount[t.level] || 0) + 1;
+      t.z = perLevelCount[t.level];
+    }
+    board.sort(function (a, b) {
+      if (a.level !== b.level) return a.level - b.level;
+      return a.z - b.z;
+    });
+    for (let i = 0; i < board.length; i++) {
+      const t = board[i];
+      t.id = i;              // id = 下标，computeBlocked 直接比下标就知道谁压谁
+      t.z = i;
+      t.kind = null;
+      t.blockedBy = [];
+      t.inSlot = false;
+    }
+    computeBlocked(board);
+    return board;
+  }
+
+  // 数一下开局有几张牌「能点」（没有任何牌压着它）
+  function countOpening(board) {
+    let n = 0;
+    for (let i = 0; i < board.length; i++) if (board[i].blockedBy.length === 0) n++;
+    return n;
+  }
+
+  /**
+   * 生成牌堆。
+   *
+   * 分两大块：
+   *   ① 摆牌（buildLayout）：按金字塔份额把牌摆到 24×24 的整数格棋盘上；
+   *   ② 贴图案（dealSolvable / buildTileKinds）：决定这一局能不能解、难不难。
+   *
+   * 「开局能点几张」由关卡的 opening 控制：反复调整金字塔的倾斜度重新摆牌，
+   * 挑一个最接近目标的方案。倾斜度越大 → 上层压得越厚 → 起手越紧。
+   */
+  function generateBoard(level) {
+    const total = level.total;
+    const layers = level.layers;
+    const shrink = typeof level.shrink === 'number' ? level.shrink : 2;
+
+    /* ---------- 第一步：每层各自建候选池（全是整数格坐标） ---------- */
+    const pools = [];
+    for (let L = 1; L <= layers; L++) {
+      const range = layerRange(L - 1, shrink);
+      if (!range) { pools.push([]); continue; }
+
+      // 每层的错位量：第 1 层不动，上面几层按 level.offset 递增错开。
+      // offset 越大 → 上层压得越狠 → 开局能点的越少（难度↑、爽感↓）。
+      // 默认 1 格：牌堆高、开局可点多，手感最像原版。
+      const step = (typeof level.offset === 'number') ? level.offset : 1;
+      const offset = (L - 1) * step;
+      const cands = pickPositions(range.lo, range.hi, offset);
+      const pool = [];
+      for (let i = 0; i < cands.length; i++) {
+        const c = cands[i];
+
+        // 星星数 = 这个位置周围「半个身位」以外还有多少地方是空的。
+        // 空位越多，说明这张牌不跟本层别的牌挤在一起，画面上越清楚。
+        let free = 0;
+        for (let dx = -3; dx <= 3; dx += 3) {
+          for (let dy = -3; dy <= 3; dy += 3) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = c.x + dx, ny = c.y + dy;
+            if (nx < range.lo || nx > range.hi || ny < range.lo || ny > range.hi) { free++; continue; }
+            let taken = false;
+            for (let k = 0; k < cands.length; k++) {
+              if (cands[k].x === nx && cands[k].y === ny) { taken = true; break; }
+            }
+            if (!taken) free++;
+          }
+        }
+
+        const dxc = (c.x + TILE_CELLS / 2) - BOARD_CELLS / 2;
+        const dyc = (c.y + TILE_CELLS / 2) - BOARD_CELLS / 2;
+        pool.push({
+          x: c.x,
+          y: c.y,
+          stars: (free >= 7 ? 2 : (free >= 5 ? 1 : 0)),
+          dist: Math.sqrt(dxc * dxc + dyc * dyc),
+          taken: false
+        });
+      }
+      shuffleArray(pool); // 同分随机，保证每局长得都不一样
+      pools.push(pool);
+    }
+
+    /* ---------- 第二步：挑一个「开局可点张数」合适的摆法 ----------
+     * opening 是【上限】：开局能点多少张直接决定爽感，所以宁可多一点。
+     * 越斜（tilt 越大）上层叠得越厚、开局能点的越少；这里从最斜的开始试，
+     * 一路放宽到接近平均，取第一个不超过上限的摆法 —— 这样牌堆尽量「塔」，
+     * 开局又不会太抠。 */
+    const caps = [];
+    for (let L = 1; L <= layers; L++) caps.push((pools[L - 1] || []).length);
+
+    const maxOpening = (typeof level.opening === 'number' && level.opening > 0) ? level.opening : Infinity;
+    const tiltList = [0.75, 0.6, 0.5, 0.45, 0.4, 0.3, 0.2, 0.1, 0.05];
+    let best = null;
+
+    for (let attempt = 0; attempt < tiltList.length; attempt++) {
+      const quota = pyramidQuota(total, layers, caps, tiltList[attempt]);
+      const layout = buildLayout(level, pools, quota);
+      const opening = countOpening(layout);
+
+      // 不超过上限就是合格；第一个合格的（最斜的）就是我们要的
+      if (opening <= maxOpening) { best = { board: layout, opening: opening, quota: quota, tilt: tiltList[attempt] }; break; }
+      // 万一所有倾斜度都超上限，就留一个「可点最少」的兜底
+      if (!best || opening < best.opening) best = { board: layout, opening: opening, quota: quota, tilt: tiltList[attempt] };
+
+      // 候选位置被用过，下一轮要重置
+      for (let L = 1; L <= layers; L++) {
+        const pool = pools[L - 1] || [];
+        for (let i = 0; i < pool.length; i++) pool[i].taken = false;
+      }
+    }
+
+    const board = best.board;
+    board.opening = best.opening;
+    board.quota = best.quota.slice();
+    board.tilt = best.tilt;
+
+    /* ---------- 第三步：贴图案（三种发牌方式） ----------
+     * 贴的顺序很关键：上面是「从最上层往下摆」的，所以
+     *   board 的摆放顺序反过来，就是一条天然合法的点击顺序
+     *   （每张被点时，压着它的牌都已经点走了）。
+     *
+     * 'solvable-revive'：保证可解，而且必定要复活一次（推荐，难度和爽感兼顾）。
+     * 'solvable'       ：保证可解，不强制复活。
+     * 'random'         ：Fisher-Yates 洗牌后随机贴（第一版做法，不保证有解）。 */
+    const encode = level.encode || 'random';
+    const kindCount = level.tilePool.length;
+    const reviveCfg = level.revive || { times: 0, remove: 3 };
+    let dealPeak = 0, dealRevives = 0;
+
+    // 把一条「点击顺序」贴到 board 上（摆放顺序是它的逆序）
+    const applyDeal = function (deal) {
+      for (let k = 0; k < board.length; k++) {
+        const solveIndex = board.length - 1 - k;   // 第 k 张被摆的牌 = 第几手点它
+        const group = deal.typeAt[solveIndex];
+        board[k].kind = level.tilePool[deal.groupKind[group]].id;
+      }
+    };
+
+    if (encode === 'solvable-revive' && reviveCfg.times > 0 && level.forceRevive !== false) {
+      // 保证可解 + 必定复活一次
+      let deal = null;
+      for (let attempt = 0; attempt < 20 && !deal; attempt++) {
+        deal = dealForcedRevive(total, kindCount, level.slots || 6, reviveCfg.remove || 3);
+      }
+      if (deal) {
+        dealPeak = deal.peak;
+        dealRevives = deal.revives;
+        applyDeal(deal);
+      } else {
+        // 算不出来就退回不强制复活的版本，至少这一局能玩
+        const fallback = dealSolvable(total, kindCount, level.slots || 6, Math.max(3, (level.slots || 6) - 2));
+        if (fallback) { dealPeak = fallback.peak; applyDeal(fallback); }
+        else {
+          const allKinds = buildTileKinds(level);
+          for (let i = 0; i < board.length; i++) board[i].kind = allKinds[i % allKinds.length];
+        }
+      }
+    } else if (encode === 'ramp') {
+      /* 前半段轻松、后半段上难度 */
+      const easyRatio = (typeof level.easyRatio === 'number') ? level.easyRatio : 0.5;
+      const hardOcc = (typeof level.hardOccupancy === 'number') ? level.hardOccupancy : ((level.slots || 7) - 1);
+      let deal = null;
+      for (let attempt = 0; attempt < 8 && !deal; attempt++) {
+        deal = dealRamp(total, kindCount, level.slots || 7, easyRatio, hardOcc - (attempt > 4 ? 1 : 0));
+      }
+      if (deal) {
+        dealPeak = deal.peak;
+        applyDeal(deal);
+        board.easyPeak = deal.easyPeak;
+        board.easyEnd = deal.easyEnd;
+      } else {
+        const allKinds = buildTileKinds(level);
+        for (let i = 0; i < board.length; i++) board[i].kind = allKinds[i % allKinds.length];
+      }
+    } else if (encode === 'solvable') {
+      /* 目标卡槽峰值。
+       * 注意：第 3 张牌是「先落进格子、再消掉」的，所以真实峰值会比目标数多 1。
+       * slots - 2 正好让峰值 = 格子数 - 1，留一格余量。 */
+      const targetPeak = Math.max(3, (level.slots || 6) - 2);   // 上限 - 1，留一格余量
+      let deal = null;
+      for (let attempt = 0; attempt < 6 && !deal; attempt++) {
+        deal = dealSolvable(total, kindCount, level.slots || 6, targetPeak - (attempt > 3 ? 1 : 0));
+      }
+      if (deal) {
+        dealPeak = deal.peak;
+        applyDeal(deal);
+      } else {
+        // 极端参数下算不出可解路线，退回随机（至少不会崩）
+        const allKinds = buildTileKinds(level);
+        for (let i = 0; i < board.length; i++) board[i].kind = allKinds[i % allKinds.length];
+      }
+    } else {
+      const allKinds = buildTileKinds(level);
+      for (let i = 0; i < board.length; i++) board[i].kind = allKinds[i % allKinds.length];
+    }
+
+    /* ---------- 第四步：贴「伪装三张」诱饵 ----------
+     * 这一步只改「哪个图案贴在哪张牌上」，不搬动任何一张牌、也不改张数，
+     * 所以发牌器算好的通关路线依然成立；变难的只是玩家的自制力。
+     * 注意：排完序以后 id 变了，得重算一遍「谁压着谁」，
+     * 否则下面判断「哪张开局就能点」用的是过期名单。 */
+    computeBlocked(board);
+    const decoyWant = (typeof level.decoys === 'number') ? level.decoys : 0;
+    const decoyMax = (typeof level.decoyMaxDanger === 'number') ? level.decoyMaxDanger : 12;
+    board.decoyWant = decoyWant;
+    board.decoyMade = applyDecoys(board, decoyWant, decoyMax, level.slots || 6);
+
+    // 记下发牌信息，方便控制台统计与自检
+    board.dealPeak = dealPeak;
+    board.dealRevives = dealRevives;
+    board.encode = encode;
+
+    return board;
+  }
+
+  /* ==========================================================================
+   * 八、游戏状态
+   * ========================================================================*/
+  const game = {
+    levelIndex: 0,
+    level: null,
+    board: [],        // 牌堆（还在桌上的牌）
+    slots: [],        // 下方卡槽，按点击顺序从左往右排
+    over: false,      // 本局是否已结束（已弹出结束/复活弹窗）
+    reviveLeft: 0,    // 还剩几次复活机会
+    knowledge: {},    // 已经解锁的西迁知识点：{ 物品id: true }
+    dom: new Map()    // 牌 id -> DOM 节点
+  };
+
+  /* DOM 引用。用 typeof 保护是为了能在 node 里 require 做算法自检。 */
+  const hasDom = (typeof document !== 'undefined');
+  const stageEl       = hasDom ? document.getElementById('stage') : null;
+  const slotsEl       = hasDom ? document.getElementById('slots') : null;
+  const levelNameEl   = hasDom ? document.getElementById('levelName') : null;
+  const remainEl      = hasDom ? document.getElementById('remainCount') : null;
+  const reviveEl      = hasDom ? document.getElementById('reviveCount') : null;
+  const modalEl       = hasDom ? document.getElementById('modal') : null;
+  const modalTitleEl  = hasDom ? document.getElementById('modalTitle') : null;
+  const modalHintEl   = hasDom ? document.getElementById('modalHint') : null;
+  const modalButtonEl = hasDom ? document.getElementById('modalButton') : null;
+
+  /* 主题相关的 DOM */
+  const tipbarEl        = hasDom ? document.getElementById('tipbar') : null;
+  const tipTextEl       = hasDom ? document.getElementById('tipText') : null;
+  const codexBtnEl      = hasDom ? document.getElementById('codexBtn') : null;
+  const codexCountEl    = hasDom ? document.getElementById('codexCount') : null;
+  const codexModalEl    = hasDom ? document.getElementById('codexModal') : null;
+  const codexGridEl     = hasDom ? document.getElementById('codexGrid') : null;
+  const codexSubEl      = hasDom ? document.getElementById('codexSub') : null;
+  const codexCloseBtnEl = hasDom ? document.getElementById('codexCloseBtn') : null;
+  const detailModalEl   = hasDom ? document.getElementById('detailModal') : null;
+  const detailPicEl     = hasDom ? document.getElementById('detailPic') : null;
+  const detailTitleEl   = hasDom ? document.getElementById('detailTitle') : null;
+  const detailKnowEl    = hasDom ? document.getElementById('detailKnowledge') : null;
+  const detailBodyEl    = hasDom ? document.getElementById('detailBody') : null;
+  const detailCloseEl   = hasDom ? document.getElementById('detailCloseBtn') : null;
+  const quizBoxEl       = hasDom ? document.getElementById('quizBox') : null;
+  const quizQuestionEl  = hasDom ? document.getElementById('quizQuestion') : null;
+  const quizOptionsEl   = hasDom ? document.getElementById('quizOptions') : null;
+  const quizResultEl    = hasDom ? document.getElementById('quizResult') : null;
+
+  /* ==========================================================================
+   * 九、西迁知识点提示条
+   * --------------------------------------------------------------------------
+   * 消掉一组牌时，在底部弹一条短提示，3 秒后自动收起来 —— 不打断操作，
+   * 也不弹窗（弹窗会挡住牌堆，连消几组的时候特别烦）。
+   * ========================================================================*/
+  let tipTimer = null;
+  function showTip(text) {
+    if (!hasDom) return;
+    console.log('[西迁知识点]', text);
+    if (!tipbarEl || !tipTextEl) return;
+    tipTextEl.textContent = text;
+    tipbarEl.classList.add('show');
+    if (tipTimer) clearTimeout(tipTimer);
+    tipTimer = setTimeout(function () {
+      tipbarEl.classList.remove('show');
+    }, 3200);
+  }
+
+  /* 提示条只留给「西迁知识点」。
+   * 像开局、复活这类状态信息走这里 —— 只记 console，不占提示条，
+   * 否则玩家分不清哪条是历史知识、哪条是游戏状态。 */
+  function logStatus(text) {
+    console.log('[状态]', text);
+  }
+
+  /* ==========================================================================
+   * 九点五、图鉴（收集所有西迁行囊）
+   * --------------------------------------------------------------------------
+   * 规则：某种物品第一次被消掉时，解锁它的知识点并弹一条提示；
+   *      之后同样的知识点【不再重复弹】。
+   * 图鉴里每件物品一格：有图片就显示图片，没有就显示占位色块；
+   * 未解锁的是暗的 + 一个问号，点进去也不给看内容。
+   * 点开已解锁的物品 → 显示图片 + 知识点 + 详细故事 + 出处。
+   * ========================================================================*/
+
+  // 一张物品的「图片」（有真图用真图，没有就用底色 + 名字占位）
+  function buildTileArt(cfg, opts) {
+    const o = opts || {};
+    const box = document.createElement('div');
+    box.className = o.cls || 'art';
+    // 未解锁：灰底 + 大问号，绝不能漏出物品名字（漏了就剧透了）
+    if (o.locked) {
+      box.style.background = '#b8b0a2';
+      const q = document.createElement('span');
+      q.className = 'art-label art-locked';
+      q.textContent = '？';
+      box.appendChild(q);
+      return box;
+    }
+    if (cfg.img) {
+      const img = document.createElement('img');
+      img.src = cfg.img;
+      img.alt = cfg.label;
+      img.draggable = false;
+      box.appendChild(img);
+    } else {
+      box.style.background = cfg.color;
+      const span = document.createElement('span');
+      span.className = 'art-label';
+      span.textContent = cfg.label;
+      box.appendChild(span);
+    }
+    return box;
+  }
+
+  function unlockedCount() {
+    let n = 0;
+    for (let i = 0; i < TILES.length; i++) if (game.knowledge[TILES[i].id]) n++;
+    return n;
+  }
+
+  function updateCodexBadge() {
+    if (codexCountEl) codexCountEl.textContent = unlockedCount() + '/' + TILES.length;
+  }
+
+  function openCodex() {
+    if (!hasDom || !codexModalEl) return;
+    renderCodex();
+    codexModalEl.classList.add('show');
+  }
+
+  function closeCodex() {
+    if (codexModalEl) codexModalEl.classList.remove('show');
+  }
+
+  function renderCodex() {
+    if (!codexGridEl) return;
+    codexGridEl.innerHTML = '';
+    const got = unlockedCount();
+    if (codexSubEl) {
+      codexSubEl.textContent = got === TILES.length
+        ? '全部 ' + TILES.length + ' 件都解锁了 —— 西迁行囊完整收齐。'
+        : '已解锁 ' + got + '/' + TILES.length + ' 件：消除 3 张相同物品即可解锁它的故事';
+    }
+    for (let i = 0; i < TILES.length; i++) {
+      const cfg = TILES[i];
+      const got2 = !!game.knowledge[cfg.id];
+      const cell = document.createElement('div');
+      cell.className = 'codex-cell' + (got2 ? '' : ' locked');
+      cell.dataset.kind = cfg.id;
+
+      cell.appendChild(buildTileArt(cfg, { cls: 'codex-art', locked: !got2 }));
+
+      const name = document.createElement('div');
+      name.className = 'codex-name';
+      name.textContent = got2 ? cfg.label : '？';
+      cell.appendChild(name);
+
+      if (got2) {
+        cell.addEventListener('click', function () { openDetail(cfg.id); });
+      }
+      codexGridEl.appendChild(cell);
+    }
+  }
+
+  // 打开某件物品的详情
+  function openDetail(kindId) {
+    if (!hasDom || !detailModalEl) return;
+    const cfg = findTileConfig(kindId);
+    const story = TILE_STORY[kindId] || {};
+    if (!cfg || !game.knowledge[kindId]) return;
+
+    if (detailPicEl) {
+      detailPicEl.innerHTML = '';
+      detailPicEl.appendChild(buildTileArt(cfg, { cls: 'detail-art' }));
+    }
+    if (detailTitleEl) detailTitleEl.textContent = cfg.label;
+    if (detailKnowEl) detailKnowEl.textContent = story.knowledge || '';
+    if (detailBodyEl) {
+      detailBodyEl.textContent = (story.body || '') +
+        (story.source ? '\n\n（' + story.source + '）' : '');
+    }
+    detailModalEl.classList.add('show');
+  }
+
+  function closeDetail() {
+    if (detailModalEl) detailModalEl.classList.remove('show');
+  }
+
+  /**
+   * 某一组牌被消掉时调用。
+   * 同一种物品只讲一次：第一次消掉它时弹提示 + 解锁图鉴；
+   * 之后不管消多少次都不再弹。
+   */
+  function onKindCleared(kindId) {
+    if (!kindId || game.knowledge[kindId]) return;   // 已经讲过 → 不重复
+    game.knowledge[kindId] = true;
+    updateCodexBadge();
+    const story = TILE_STORY[kindId] || {};
+    const cfg = findTileConfig(kindId);
+    showTip((cfg ? cfg.label : kindId) + '：' + (story.knowledge || ''));
+  }
+
+  /* ==========================================================================
+   * 九点六、答题复活
+   * --------------------------------------------------------------------------
+   * 底栏塞满时不直接判死，而是给一道西迁知识题：
+   *   答对 → 复活（移出底栏最后几张），继续打
+   *   答错 → 这局结束，但立刻能再来一局
+   * 题库在 QUIZ_BANK 里，想加题往那儿加就行。
+   * ========================================================================*/
+  let quizState = null;   // { item, answered }
+
+  function pickQuiz() {
+    if (!QUIZ_BANK.length) return null;
+    // 先随机抽一道；同一个题库用过就继续随机（题多了也不会总是同一条）
+    return QUIZ_BANK[Math.floor(Math.random() * QUIZ_BANK.length)];
+  }
+
+  function renderQuiz(item) {
+    if (!hasDom) return;
+    if (quizBoxEl) quizBoxEl.hidden = false;
+    if (quizResultEl) quizResultEl.textContent = '';
+    if (quizQuestionEl) quizQuestionEl.textContent = item.q;
+    if (!quizOptionsEl) return;
+    quizOptionsEl.innerHTML = '';
+    for (let i = 0; i < item.options.length; i++) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'quiz-option';
+      btn.textContent = item.options[i];
+      btn.dataset.index = String(i);
+      btn.addEventListener('click', onQuizAnswer);
+      quizOptionsEl.appendChild(btn);
+    }
+  }
+
+  function clearQuiz() {
+    if (hasDom && quizOptionsEl) quizOptionsEl.innerHTML = '';
+    if (quizBoxEl) quizBoxEl.hidden = true;
+    if (quizResultEl) quizResultEl.textContent = '';
+    quizState = null;
+  }
+
+  function onQuizAnswer(ev) {
+    if (!quizState || quizState.answered) return;
+    const btn = ev.currentTarget;
+    const picked = Number(btn.dataset.index);
+    const item = quizState.item;
+    quizState.answered = true;
+
+    // 把所有选项锁住，并标出对错
+    if (quizOptionsEl) {
+      const all = quizOptionsEl.querySelectorAll('.quiz-option');
+      for (let i = 0; i < all.length; i++) {
+        const b = all[i];
+        const idx = Number(b.dataset.index);
+        b.classList.add('locked');
+        if (idx === item.answer) b.classList.add('right');
+        else if (idx === picked) b.classList.add('wrong');
+      }
+    }
+
+    const right = (picked === item.answer);
+    if (quizResultEl) {
+      quizResultEl.textContent = (right ? '答对了！' : '答错了。') + (item.explain || '');
+      quizResultEl.classList.add('show');
+    }
+
+    // 把主按钮变成下一步：答对了才是「复活继续」，答错了是「再来一局」
+    if (modalButtonEl) {
+      if (right) {
+        modalButtonEl.textContent = '复活，继续';
+        modalButtonEl.dataset.action = 'revive';
+      } else {
+        modalButtonEl.textContent = '再来一局';
+        modalButtonEl.dataset.action = 'restart';
+      }
+      modalButtonEl.disabled = false;
+    }
+  }
+
+  /* ==========================================================================
+   * 十、渲染层（DOM + CSS 定位）
+   * ========================================================================*/
+
+  // 根据视口大小算出一格多少像素，写进 CSS 变量，保证不出现横向滚动条
+  function applySize() {
+    if (!hasDom) return;
+    const slotCount = game.level ? game.level.slots : 7;
+
+    const availW = Math.min(window.innerWidth, document.documentElement.clientWidth) - 16;
+
+    // 高度也要留够：头部 + 牌堆 + 格子 + 按钮
+    const headerEl = document.getElementById('hud');
+    const barEl = document.getElementById('slotsBar');
+    const footerEl = document.getElementById('footer');
+    const hHeader = headerEl ? headerEl.offsetHeight : 40;
+    const hBar = barEl ? barEl.offsetHeight : 96;
+    const hFooter = footerEl ? footerEl.offsetHeight : 56;
+    const availH = Math.max(220, window.innerHeight - hHeader - hBar - hFooter - 40);
+
+    // 一格多少像素：宽高都放得下才不出现滚动条
+    const cell = Math.max(12, Math.floor(Math.min(availW / BOARD_CELLS, availH / BOARD_CELLS)));
+    const boardPx = cell * BOARD_CELLS;
+
+    const root = document.documentElement;
+    root.style.setProperty('--cell', cell + 'px');
+    root.style.setProperty('--board', boardPx + 'px');
+    root.style.setProperty('--slot', cell + 'px');
+    root.style.setProperty('--slots', String(slotCount));
+
+    // 卡槽里一张牌的大小 = 3 个格子；再保证 7 格能塞进屏幕宽度
+    const gapPx = 4, padPx = 14;
+    const maxSlotTileByWidth = Math.floor((availW - gapPx * (slotCount - 1) - padPx) / slotCount);
+    const slotTile = Math.max(24, Math.min(cell * TILE_CELLS, maxSlotTileByWidth));
+    root.style.setProperty('--slot-tile', slotTile + 'px');
+
+    // 牌上的文字大小跟着格子走。
+    // 一张牌宽 3 格，想让「行李箱」这种三个字的名字排成一行，
+    // 字号大约要 ≤ 牌宽的 1/3.4；这里再兜一个下限，太小就看不清了。
+    const boardFont = Math.max(10, Math.round(cell * TILE_CELLS * 0.29));
+    const slotFont = Math.max(10, Math.round(slotTile * 0.29));
+    root.style.setProperty('--font-board', boardFont + 'px');
+    root.style.setProperty('--font-slot', slotFont + 'px');
+  }
+
+  // 用整数格坐标给一个节点定位（「只用整数格坐标」的落地方式）
+  function placeNode(node, item, inSlot) {
+    const el = node;
+    if (inSlot) {
+      // 在卡槽里：靠 flex 排，不需要绝对定位
+      el.style.position = 'relative';
+      el.style.left = '';
+      el.style.top = '';
+      el.style.width = 'var(--slot-tile)';
+      el.style.height = 'var(--slot-tile)';
+      el.classList.add('in-slot');
+      el.classList.remove('on-board');
+    } else {
+      el.style.position = 'absolute';
+      el.style.left = 'calc(var(--cell) * ' + item.x + ')';
+      el.style.top = 'calc(var(--cell) * ' + item.y + ')';
+      el.style.width = 'calc(var(--cell) * ' + TILE_CELLS + ')';
+      el.style.height = 'calc(var(--cell) * ' + TILE_CELLS + ')';
+      el.classList.add('on-board');
+      el.classList.remove('in-slot');
+    }
+    // 层号越大 z-index 越大 → 显示在越上面，和玩法里的「谁压谁」完全一致
+    el.style.zIndex = String(10 + item.level * 100 + (item.z || 0));
+  }
+
+  function findTileConfig(kindId) {
+    for (let i = 0; i < TILES.length; i++) {
+      if (TILES[i].id === kindId) return TILES[i];
+    }
+    return null;
+  }
+
+  // 造一张牌的 DOM 节点（占位素材的关键设计就在这里）
+  function createTileNode(item) {
+    const cfg = findTileConfig(item.kind);
+
+    const el = document.createElement('div');
+    el.className = 'tile';
+    el.dataset.kind = item.kind;
+    el.dataset.id = String(item.id);
+
+    if (cfg && cfg.img) {
+      // 有真实图片就画图片（同学以后只要在 TILES 里填 img 就行）
+      const img = document.createElement('img');
+      img.className = 'tile-img';
+      img.src = cfg.img;
+      img.alt = cfg.label || item.kind;
+      img.draggable = false;
+      el.appendChild(img);
+    } else {
+      // 没有图片就画「color 底色的方块 + 居中的 label 文字」
+      el.style.background = cfg ? cfg.color : '#888';
+      const span = document.createElement('span');
+      span.className = 'tile-label';
+      span.textContent = cfg ? cfg.label : '?';
+      el.appendChild(span);
+    }
+
+    return el;
+  }
+
+  // 整局开始时把所有牌节点一次建好（避免每次点击都重建 DOM）
+  function buildTileNodes() {
+    if (!hasDom) return;
+    for (let i = 0; i < game.board.length; i++) {
+      const item = game.board[i];
+      const el = createTileNode(item);
+      el.addEventListener('click', onTileClick);
+      game.dom.set(item.id, el);
+      stageEl.appendChild(el);
+      placeNode(el, item, false);
+    }
+  }
+
+  /* --------------------------------------------------------------------------
+   * 刷新牌面表现（分三档，看「身上压着几张牌」）：
+   *   0 张  →  正常亮着，可以点
+   *   1 张  →  半透明：还看得清是什么图案，玩家能提前做规划（细节少了但不乱）
+   *   2 张以上 → 纯色牌背：图案和文字全部盖掉
+   * 这样做的好处在 120 张牌的厚牌堆上特别明显：
+   * 底层几十张牌本来就翻不出来，把它们的图案藏掉，画面立刻清爽。
+   * 注意：「能不能点」始终只看 blockedBy 是否为空，和这里怎么画无关。
+   * ------------------------------------------------------------------------*/
+  function updateBoard() {
+    if (!hasDom) return;
+    for (let i = 0; i < game.board.length; i++) {
+      const item = game.board[i];
+      const el = game.dom.get(item.id);
+      if (!el) continue;
+      const n = item.blockedBy.length;              // 压着它的牌有几张
+      const blocked = n > 0;                        // 有牌压着 → 点不了
+      const deep = n >= 2;                          // 压了两张以上 → 画成牌背
+
+      el.classList.toggle('blocked', blocked && !deep);
+      el.classList.toggle('deep-blocked', deep);
+      el.setAttribute('aria-disabled', blocked ? 'true' : 'false');
+      el.title = blocked
+        ? ('被 ' + n + ' 张牌压住，点不了' + (deep ? '（牌背）' : '（半透明，还看得见图案）'))
+        : '可以点';
+    }
+  }
+
+  function updateSlots() {
+    if (!hasDom) return;
+
+    // 按顺序把卡槽里的牌摆好（后面的牌往前补位就靠这里重排）
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < game.slots.length; i++) {
+      const item = game.slots[i];
+      const el = game.dom.get(item.id);
+      if (!el) continue;
+      // 正在播「消失动画」的牌已经不属于卡槽了，绝不能再摆回去
+      // （否则它会被重新插入，删除定时器就删不到它，卡槽里会越积越多幽灵牌）
+      if (el.classList.contains('clearing')) continue;
+      el.classList.remove('blocked');        // 进了卡槽就不存在被压的问题
+      el.classList.remove('deep-blocked');   // 牌背也要还原，露出真图案
+      placeNode(el, item, true);
+      frag.appendChild(el);
+    }
+    slotsEl.appendChild(frag);
+
+    // 空位补上虚线小方块，玩家一眼知道还剩几格
+    const old = slotsEl.querySelectorAll('.slot-placeholder');
+    for (let i = 0; i < old.length; i++) {
+      if (old[i].parentNode) old[i].parentNode.removeChild(old[i]);
+    }
+    const totalSlots = game.level ? game.level.slots : 7;
+    for (let i = game.slots.length; i < totalSlots; i++) {
+      const ph = document.createElement('div');
+      ph.className = 'slot-placeholder';
+      slotsEl.appendChild(ph);
+    }
+  }
+
+  function updateHud() {
+    if (!hasDom) return;
+    if (levelNameEl) levelNameEl.textContent = game.level.name;
+    if (remainEl) remainEl.textContent = String(game.board.length);
+    updateReviveHud();
+  }
+
+  // 顶部的「复活」次数：还有机会就显示数字，用完了显示「已用完」
+  function updateReviveHud() {
+    if (!hasDom || !reviveEl) return;
+    const cfg = game.level.revive || { times: 0 };
+    if (cfg.times <= 0) { reviveEl.textContent = '—'; return; }
+    reviveEl.textContent = game.reviveLeft > 0 ? String(game.reviveLeft) : '已用完';
+  }
+
+  function refreshAll() {
+    updateBoard();
+    updateSlots();
+    updateHud();
+  }
+
+  /* ==========================================================================
+   * 十一、点击一张牌 —— 能不能点，理由写在判断处
+   * ========================================================================*/
+  function onTileClick(ev) {
+    const el = ev.currentTarget;
+    const id = Number(el.dataset.id);
+    const item = findBoardItem(id);
+
+    // ---- 「这张牌能不能点」的判断，逐条列出理由 ----
+    if (game.over) return;                          // ① 本局已结束，谁都不能再点
+    if (!item) return;                              // ② 这张牌已经不在桌上了（已经进过卡槽）
+    if (el.classList.contains('blocked')) return;    // ③ 身上压着别的牌 → 点不了（CSS 也禁止了点击）
+    if (item.blockedBy.length > 0) return;           // ④ 同上，以数据为准，双保险
+    // ⑤ 能走到这里，说明没有任何牌压住它 → 可以点
+
+    useTile(item);
+  }
+
+  function findBoardItem(id) {
+    for (let i = 0; i < game.board.length; i++) {
+      if (game.board[i].id === id) return game.board[i];
+    }
+    return null;
+  }
+
+  // 把一张能点的牌移到下方 7 格里，然后结算
+  function useTile(item) {
+    // 1) 从牌堆里摘掉
+    game.board = game.board.filter(function (t) { return t.id !== item.id; });
+
+    // 2) 按点击顺序放进卡槽末尾（所以自然是从左往右排）
+    item.inSlot = true;
+    game.slots.push(item);
+
+    // 3) 它移走之后，原来被它压住的牌可能就露出来了 → 重算遮挡
+    computeBlocked(game.board);
+
+    // 4) 刷新表现（哪张能点、卡槽摆放、剩余张数）
+    refreshAll();
+
+    // 5) 结算：凑齐 3 张一样的就消掉
+    resolveMatches();
+    updateSlots();
+    updateHud();
+
+    // 6) 判断输赢
+    checkEnd();
+  }
+
+  /* ==========================================================================
+   * 十二、三消结算
+   * --------------------------------------------------------------------------
+   * 卡槽里凑齐 3 张一样的牌 → 自动消掉，后面的牌往前补位。
+   * 用 while 循环：一次点击有可能同时凑成好几组，都要消掉。
+   * ========================================================================*/
+  function resolveMatches() {
+    let removedAny = true;
+    while (removedAny) {
+      removedAny = false;
+
+      // 统计每个图案在卡槽里出现了几张
+      const byKind = {};
+      for (let i = 0; i < game.slots.length; i++) {
+        const k = game.slots[i].kind;
+        if (!byKind[k]) byKind[k] = [];
+        byKind[k].push(game.slots[i]);
+      }
+
+      const kinds = Object.keys(byKind);
+      for (let i = 0; i < kinds.length; i++) {
+        const group = byKind[kinds[i]];
+        if (group.length < 3) continue;
+
+        // 取这一组里的 3 张（按在卡槽里的先后顺序）
+        const killIds = {};
+        for (let n = 0; n < 3; n++) killIds[group[n].id] = true;
+
+        // 从卡槽里删掉，剩下的牌自动往前补位
+        game.slots = game.slots.filter(function (t) { return !killIds[t.id]; });
+
+        // 删掉对应的 DOM（带一点淡出）
+        for (const idStr in killIds) {
+          const id = Number(idStr);
+          const node = game.dom.get(id);
+          if (node) {
+            node.classList.add('clearing');
+            setTimeout(function () {
+              if (node.parentNode) node.parentNode.removeChild(node);
+            }, 160);
+            game.dom.delete(id);
+          }
+        }
+
+        // 这一组牌被消掉了 → 如果是第一次消掉这种物品，就讲一段西迁知识点
+        // （onKindCleared 内部会判断「讲过就不再讲」，所以同一条只会触发一次）
+        onKindCleared(kinds[i]);
+        removedAny = true;
+        break; // 重新统计一遍，再找下一组
+      }
+    }
+  }
+
+  function labelOf(kindId) {
+    const cfg = findTileConfig(kindId);
+    return cfg ? cfg.label : kindId;
+  }
+
+  /* ==========================================================================
+   * 十三、输 / 赢 / 复活
+   * --------------------------------------------------------------------------
+   * 底栏满了、又凑不出三张时：
+   *   - 还有复活机会 → 弹「救援」窗，点一下就复活（移出底栏物品），继续打
+   *   - 没机会了     → 才是真的输
+   * 赢：牌堆清空 → 弹窗提示通关。
+   * ========================================================================*/
+  function checkEnd() {
+    if (game.over) return;
+
+    // 赢：牌堆清空
+    if (game.board.length === 0) {
+      endGame(true, '通关啦！', '行李都收拾好了，可以出发去西迁了。');
+      return;
+    }
+
+    // 底栏满了，且没有任何 3 张相同（有相同的早就在 resolveMatches 里消掉了）
+    if (game.slots.length >= game.level.slots) {
+      if (hasAnyTriple(game.slots)) return;
+      const cfg = game.level.revive || { times: 0, remove: 3 };
+      if (game.reviveLeft > 0 && cfg.times > 0) {
+        // 还能复活：弹救援窗，让玩家自己点
+        showReviveDialog(cfg.remove);
+      } else {
+        endGame(false, '底栏满了', '没有能凑成 3 张的牌了，再来一局吧。');
+      }
+    }
+  }
+
+  // 卡槽里是否存在「3 张相同」（正常情况下消完就不存在，这里作为兜底判断）
+  function hasAnyTriple(slots) {
+    const count = {};
+    for (let i = 0; i < slots.length; i++) {
+      const k = slots[i].kind;
+      count[k] = (count[k] || 0) + 1;
+      if (count[k] >= 3) return true;
+    }
+    return false;
+  }
+
+  /* --------------------------------------------------------------------------
+   * 复活：把底栏里【最后进去的几张】物品移出去，腾出位置继续。
+   * 为什么移最后几张：那几张是玩家刚刚放进去、最"烫手"的，
+   * 移掉它们等于给他一次"我刚才那几步不算"的机会，最符合直觉。
+   * ------------------------------------------------------------------------*/
+  function revive(removeCount) {
+    if (game.reviveLeft <= 0) return;
+
+    // 1) 从卡槽末尾（最后放进去的）拿走几张
+    const removed = game.slots.splice(Math.max(0, game.slots.length - removeCount), removeCount);
+
+    // 2) 这些牌彻底作废：从 DOM 和映射里删掉
+    for (let i = 0; i < removed.length; i++) {
+      const node = game.dom.get(removed[i].id);
+      if (node) {
+        node.classList.add('clearing');
+        const n = node;
+        setTimeout(function () { if (n.parentNode) n.parentNode.removeChild(n); }, 160);
+        game.dom.delete(removed[i].id);
+      }
+    }
+
+    // 3) 扣掉一次机会，关掉弹窗，继续打
+    game.reviveLeft--;
+    game.over = false;
+    closeModal();
+    refreshAll();
+    updateReviveHud();
+
+    logStatus('复活！移出了 ' + removed.length + ' 件行李（' +
+      removed.map(function (t) { return labelOf(t.kind); }).join('、') + '）');
+  }
+
+  function showReviveDialog(removeCount) {
+    game.over = true; // 先冻住棋盘，避免玩家趁弹窗时继续点
+    if (!hasDom) return;
+    const item = pickQuiz();
+
+    if (modalTitleEl) modalTitleEl.textContent = '底栏塞满了';
+    if (modalButtonEl) { modalButtonEl.disabled = false; }
+
+    // 没题库就退回原来的「直接复活」，保证不会因为没题而卡死
+    if (!item) {
+      if (modalHintEl) modalHintEl.textContent =
+        '还能救一次 —— 移出底栏最后 ' + removeCount + ' 件物品，继续收拾行囊。';
+      if (modalButtonEl) {
+        modalButtonEl.textContent = '复活，继续';
+        modalButtonEl.dataset.action = 'revive';
+      }
+      if (quizBoxEl) quizBoxEl.hidden = true;
+      if (modalEl) modalEl.classList.add('show');
+      return;
+    }
+
+    // 答题复活：答对才给复活机会
+    if (modalHintEl) {
+      modalHintEl.textContent = '答对下面这道西迁知识题，就帮你移出底栏最后 ' +
+        removeCount + ' 件物品，继续收拾行囊。';
+    }
+    quizState = { item: item, answered: false };
+    renderQuiz(item);
+    // 还没作答之前，主按钮先禁用（防止玩家不看题直接点）
+    if (modalButtonEl) {
+      modalButtonEl.textContent = '请先选择答案';
+      modalButtonEl.dataset.action = 'none';
+      modalButtonEl.disabled = true;
+    }
+    if (modalEl) modalEl.classList.add('show');
+  }
+
+  function endGame(win, title, hint) {
+    game.over = true;
+    if (!hasDom) return;
+    // 结束/失败都要把答题区收起来，免得下次弹窗还挂着上一题的残留
+    clearQuiz();
+    if (modalTitleEl) modalTitleEl.textContent = title;
+    if (modalHintEl) {
+      modalHintEl.textContent = win
+        ? (hint + '（图鉴里已解锁 ' + unlockedCount() + '/' + TILES.length + ' 件西迁行囊）')
+        : hint;
+    }
+    if (modalButtonEl) {
+      modalButtonEl.disabled = false;
+      modalButtonEl.textContent = win ? '再玩一局' : '再来一局';
+      modalButtonEl.dataset.action = 'restart'; // 这个按钮负责重开
+    }
+    if (modalEl) modalEl.classList.add('show');
+  }
+
+  // 弹窗里那个按钮：可能是「复活继续」，也可能是「再来一局」
+  function onModalButtonClick() {
+    const action = (modalButtonEl && modalButtonEl.dataset) ? modalButtonEl.dataset.action : 'restart';
+    if (action === 'revive') {
+      const cfg = game.level.revive || { remove: 3 };
+      revive(cfg.remove || 3);
+    } else if (action === 'none') {
+      return;   // 答题复活：还没选答案，这个按钮暂时不作数
+    } else {
+      startRound();
+    }
+  }
+
+  function closeModal() {
+    if (hasDom && modalEl) modalEl.classList.remove('show');
+  }
+
+  /* ==========================================================================
+   * 十四、开局 / 重开
+   * ========================================================================*/
+  function startRound(levelIndex) {
+    game.levelIndex = (typeof levelIndex === 'number') ? levelIndex : game.levelIndex;
+    game.level = LEVELS[game.levelIndex];
+
+    // 1) 生成牌堆（洗牌后随机贴图案）
+    game.board = generateBoard(game.level);
+
+    // 2) 生成时就把「压住我的牌」名单算好
+    computeBlocked(game.board);
+
+    // 3) 打印牌堆统计，确认每种都是 3 的倍数、总数对得上
+    logBoardStats(game.board, game.level);
+
+    // 4) 清理界面
+    game.slots = [];
+    game.over = false;
+    // 复活次数按关卡配置重置
+    const reviveCfg = game.level.revive || { times: 0 };
+    game.reviveLeft = reviveCfg.times || 0;
+    game.dom.clear();
+    if (hasDom) {
+      stageEl.innerHTML = '';
+      slotsEl.innerHTML = '';
+    }
+    closeModal();
+
+    // 5) 建节点、定尺寸、摆好
+    buildTileNodes();
+    applySize();
+    refreshAll();
+
+    logStatus('开始新的一局：' + game.level.name + '（' + game.level.tip + '）');
+  }
+
+  /* ==========================================================================
+   * 十五、控制台统计（验收要求）
+   * --------------------------------------------------------------------------
+   * 打印每种图案各几张，并校验：每种都是 3 的倍数、总数对得上。
+   * ========================================================================*/
+  function logBoardStats(board, level) {
+    const count = {};
+    for (let i = 0; i < TILES.length; i++) count[TILES[i].id] = 0;
+    for (let i = 0; i < board.length; i++) {
+      count[board[i].kind] = (count[board[i].kind] || 0) + 1;
+    }
+
+    let allMultipleOfThree = true;
+    let sum = 0;
+    const rows = [];
+    for (let i = 0; i < TILES.length; i++) {
+      const t = TILES[i];
+      const n = count[t.id] || 0;
+      sum += n;
+      if (n % 3 !== 0) allMultipleOfThree = false;
+      rows.push({ 图案: t.label, id: t.id, 张数: n, '是3的倍数': (n % 3 === 0 ? '是' : '否') });
+    }
+
+    console.log('=== 牌堆统计：' + level.name + ' ===');
+    if (console.table) console.table(rows);
+    else console.log(rows);
+    console.log('总张数 =', sum,
+      '| 配置总张数 =', level.total,
+      '| 对得上 =', (sum === level.total ? '是' : '否'),
+      '| 每种都是 3 的倍数 =', (allMultipleOfThree ? '是' : '否'));
+
+    // 顺手统计每层多少张、开局有多少张能点（调试用）
+    const perLevel = {};
+    for (let i = 0; i < board.length; i++) perLevel[board[i].level] = (perLevel[board[i].level] || 0) + 1;
+    let clickable = 0;
+    for (let i = 0; i < board.length; i++) if (board[i].blockedBy.length === 0) clickable++;
+    console.log('每层张数 =', perLevel,
+      '| 开局可点张数 =', clickable,
+      '| 被压住张数 =', board.length - clickable);
+
+    // 难度信息：发牌方式、开局可点张数、卡槽格子数、设计路线上的卡槽峰值
+    console.log('难度设置 =', {
+      发牌方式: (board.encode === 'solvable' ? '保证可解（每条路线都走得通）' : '纯随机（不保证有解）'),
+      卡槽格子数: level.slots,
+      本局设计路线的卡槽峰值: board.dealPeak,
+      开局可点张数: board.opening,
+      每层张数: board.quota
+    });
+  }
+
+  if (hasDom) { window.__game = game; }   // 调试用：控制台可以看 game.board / game.slots
+
+  /* ==========================================================================
+   * 十六、启动（只在浏览器里跑；node 里 require 时不会执行，方便做算法自检）
+   * ========================================================================*/
+  function init() {
+    applySize();
+    startRound(0);
+
+    // 窗口大小变化（含手机横竖屏切换）→ 重新算格子大小
+    window.addEventListener('resize', function () {
+      applySize();
+      // 位置都是格坐标算出来的，尺寸一变只重新摆一下就行
+      for (let i = 0; i < game.board.length; i++) {
+        const el = game.dom.get(game.board[i].id);
+        if (el) placeNode(el, game.board[i], false);
+      }
+      updateSlots();
+    });
+    window.addEventListener('orientationchange', function () {
+      setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 200);
+    });
+
+    // 按钮：重新开始 / 弹窗里的按钮（可能是复活，也可能是再来一局）
+    const restartBtn = document.getElementById('restartBtn');
+    if (restartBtn) restartBtn.addEventListener('click', function () { startRound(); });
+    if (modalButtonEl) modalButtonEl.addEventListener('click', onModalButtonClick);
+
+    // 图鉴：入口按钮 / 关掉 / 详情页关掉
+    if (codexBtnEl) codexBtnEl.addEventListener('click', openCodex);
+    if (codexCloseBtnEl) {
+      codexCloseBtnEl.addEventListener('click', function () {
+        closeCodex();
+        closeDetail();
+      });
+    }
+    if (detailCloseEl) {
+      detailCloseEl.addEventListener('click', function () {
+        closeDetail();
+        // 从详情返回图鉴
+        if (codexModalEl) codexModalEl.classList.add('show');
+      });
+    }
+    if (detailModalEl) {
+      // 点遮罩也能关掉详情
+      detailModalEl.addEventListener('click', function (ev) {
+        if (ev.target === detailModalEl) {
+          closeDetail();
+          if (codexModalEl) codexModalEl.classList.add('show');
+        }
+      });
+    }
+    updateCodexBadge();
+  }
+
+  if (hasDom && document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else if (hasDom) {
+    init();
+  }
+
+  /* ==========================================================================
+   * 十七、给 node 的自检出口（浏览器里用不到，也不影响游戏）
+   * --------------------------------------------------------------------------
+   * 用来在命令行里跑几百局，确认「每种图案都是 3 的倍数、总数对得上」，
+   * 以及生成器不会死循环。
+   * ========================================================================*/
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+      TILES: TILES,
+      LEVELS: LEVELS,
+      BOARD_CELLS: BOARD_CELLS,
+      TILE_CELLS: TILE_CELLS,
+      generateBoard: generateBoard,
+      computeBlocked: computeBlocked,
+      buildTileKinds: buildTileKinds,
+      dealSolvable: dealSolvable,
+      dealRamp: dealRamp,
+      applyDecoys: applyDecoys,
+      scoreVisibility: scoreVisibility,
+      dealForcedRevive: dealForcedRevive,
+      slotProfile: slotProfile,
+      countOpening: countOpening,
+      logBoardStats: logBoardStats,
+      rectsOverlap: rectsOverlap,
+      visibleCellsOf: visibleCellsOf,
+      pickPositions: pickPositions,
+      layerRange: layerRange
+    };
+  }
+})();
