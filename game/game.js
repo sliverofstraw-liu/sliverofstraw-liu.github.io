@@ -1392,7 +1392,16 @@
     slots: [],        // 下方卡槽，按点击顺序从左往右排
     over: false,      // 本局是否已结束（已弹出结束/复活弹窗）
     reviveLeft: 0,    // 还剩几次复活机会
-    knowledge: {},    // 已经解锁的西迁知识点：{ 物品id: true }
+    /* 图鉴解锁记录：{ 物品id: true }
+     * 这一份是【持久化】的 —— 开局时从 localStorage 读回来，
+     * 解锁新物品时立刻写回去。所以关掉浏览器再打开，已解锁的还在，
+     * 也不会再重复弹知识点提示。 */
+    knowledge: {},
+    /* 本局已经弹过提示的物品（只活在这一局里）。
+     * 为什么要和上面分开：上面那份是「用户知道这件事」，
+     * 这份是「这一局已经讲过」—— 重开一局后提示条要能重新提示
+     * 新解锁的东西，但已经知道的东西永远不再重复打扰。 */
+    tipShown: {},
     escapeShown: false, // 微信/QQ 引导层是否已经弹过（同一次会话只弹一次）
     dom: new Map()    // 牌 id -> DOM 节点
   };
@@ -1620,6 +1629,54 @@
    * 点开已解锁的物品 → 显示图片 + 知识点 + 详细故事 + 出处。
    * ========================================================================*/
 
+  /* --------------------------------------------------------------------------
+   * 图鉴解锁记录的持久化
+   * --------------------------------------------------------------------------
+   * 用 localStorage 存，只存「已解锁的物品 id」数组。
+   * 三处必须做防御：
+   *   ① 读：隐私模式 / 微信某些 WebView 里 localStorage 可能直接抛异常；
+   *      存进去的内容也可能被用户或旧版本弄坏 —— 解析失败就当没存过。
+   *   ② 写：配额满或被禁用会抛异常，不能让它把游戏流程带崩。
+   *   ③ 校验：只认 TILES 里真实存在的 id，别把脏数据带进来。
+   * ------------------------------------------------------------------------ */
+  const STORE_KEY = 'xxy_knowledge_v1';
+
+  function loadKnowledge() {
+    const got = {};
+    let raw = null;
+    try {
+      raw = localStorage.getItem(STORE_KEY);
+    } catch (e) {
+      return got;      // 存储不可用（隐私模式等）→ 当成新玩家，游戏照常能玩
+    }
+    if (!raw) return got;
+    try {
+      const arr = JSON.parse(raw);
+      if (Object.prototype.toString.call(arr) === '[object Array]') {
+        for (let i = 0; i < arr.length; i++) {
+          // 只认确实存在的物品 id，脏数据一律丢掉
+          if (findTileConfig(arr[i])) got[arr[i]] = true;
+        }
+      }
+    } catch (e) {
+      return got;      // 数据坏了 → 当作没存过，不让它把游戏弄崩
+    }
+    return got;
+  }
+
+  function saveKnowledge() {
+    const ids = [];
+    for (let i = 0; i < TILES.length; i++) {
+      if (game.knowledge[TILES[i].id]) ids.push(TILES[i].id);
+    }
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(ids));
+    } catch (e) {
+      // 存不进去也不影响本局游玩，只是下次打开要重新解锁
+      logStatus('图鉴进度没能存下来（存储不可用）');
+    }
+  }
+
   // 一张物品的「图片」（有真图用真图，没有就用底色 + 名字占位）
   function buildTileArt(cfg, opts) {
     const o = opts || {};
@@ -1730,9 +1787,22 @@
    * 之后不管消多少次都不再弹。
    */
   function onKindCleared(kindId) {
-    if (!kindId || game.knowledge[kindId]) return;   // 已经讲过 → 不重复
-    game.knowledge[kindId] = true;
-    updateCodexBadge();
+    if (!kindId) return;
+
+    const alreadyKnown = !!game.knowledge[kindId];   // 用户以前就解锁过（跨会话）
+    const alreadyTipped = !!game.tipShown[kindId];   // 这一局已经弹过提示
+
+    if (!alreadyKnown) {
+      // 第一次解锁：立刻写进本地记录，这样即使马上关掉页面也不会丢
+      game.knowledge[kindId] = true;
+      saveKnowledge();
+      updateCodexBadge();
+    }
+
+    // 提示条只在「这一局首次消掉它」时弹。
+    // 已经解锁过的（比如上次玩就收齐了）不再重复打扰，图鉴里照样是亮的。
+    if (alreadyTipped) return;
+    game.tipShown[kindId] = true;
     const story = TILE_STORY[kindId] || {};
     const cfg = findTileConfig(kindId);
     showTip((cfg ? cfg.label : kindId) + '：' + (story.knowledge || ''));
@@ -2356,6 +2426,15 @@
     // 4) 清理界面
     game.slots = [];
     game.over = false;
+    /* 图鉴解锁记录是【跨局保留】的：从本地读回来（第一次进来时读一次就够），
+     * 只有「本局弹过哪些提示」要清空 —— 这样重开一局时，
+     * 新解锁的物品还能弹提示，而早就知道的不会再来打扰。 */
+    if (!game.knowledgeLoaded) {
+      game.knowledge = loadKnowledge();
+      game.knowledgeLoaded = true;
+    }
+    game.tipShown = {};
+    updateCodexBadge();
     // 复活次数按关卡配置重置
     const reviveCfg = game.level.revive || { times: 0 };
     game.reviveLeft = reviveCfg.times || 0;
