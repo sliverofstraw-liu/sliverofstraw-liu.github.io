@@ -148,18 +148,15 @@ body {
 
 /* ---------- 主体 ---------- */
 #app {
-  /* 关键：flex 不伸缩（0 0 auto）。
-     之前是 1 0 auto —— 它会吃掉 body 的剩余高度，把底部按钮顶到屏幕最下面。
-     而各浏览器上报的视口高度不一样，"剩余高度"也就不一样，
-     于是「重新开始」在手机浏览器里贴着小字、在 QQ 内置浏览器里掉到底部。
-     现在整条内容按自然高度排下来，底部多出来的空间留给 body，谁都不抢。 */
-  flex: 0 0 auto;
+  /* 让主体在剩余空间里【垂直居中】：
+   * 顶部那行（班徽/标题/图鉴）保持贴顶，
+   * 牌堆 + 卡槽 + 小字 这一整块在剩下的空间里居中 —— 卡片区就落在画面中心。
+   * flex: 1 1 auto 才能拿到剩余高度来做居中（底部按钮已去掉，不会再有"被顶到底部"的问题）。 */
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* justify-content: flex-start：牌堆从上方开始 → 自然落在「比屏幕正中略高」的位置。
-     如果改成 center，牌堆会掉到页面正中偏下，和「略高」的要求相反。 */
-  justify-content: flex-start;
+  justify-content: center;
   padding: 0 8px 6px;
 }
 
@@ -346,15 +343,7 @@ body {
   background: rgba(255, 255, 255, 0.35);
 }
 
-/* ---------- 底部按钮 ---------- */
-#footer {
-  flex: 0 0 auto;                 /* 不抢空间：紧跟在主题小字下面，不再被推到屏幕最底部 */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 8px 0 4px;             /* 和小字之间留一点空隙（收窄，给背景让位） */
-}
+
 
 .btn {
   /* 可点区域不小于 44×44 像素 */
@@ -686,7 +675,6 @@ body {
   .top-badge, .top-codex { width: 38px; height: 38px; }
   .top-title { font-size: 16px; letter-spacing: 0.14em; text-indent: 0.14em; }
   #slotsBar { padding: 3px 0; }
-  #footer { padding: 4px 0 2px; }
   #subtitle { padding: 2px 0 4px; min-height: 24px; }
   #subtitle .subtitle-sub { display: none; }   /* 太矮就不显示这行小字 */
   #stage { margin-bottom: 6px; }

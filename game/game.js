@@ -2082,17 +2082,17 @@
     const stagePad = 14;
     const availW = Math.min(window.innerWidth, document.documentElement.clientWidth) - 16 - stagePad * 2;
 
-    // 高度也要留够：顶部按钮行 + 牌堆 + 底栏 + 主题小字 + 按钮
+    /* 高度要留够：顶部那行 + 牌堆 + 卡槽 + 旅程条 + 主题小字。
+     * 底部按钮已经去掉了，所以不再扣它的高度 ——
+     * 省下来的空间还给棋盘，牌就大一点。 */
     const topEl = document.getElementById('topBar');
     const barEl = document.getElementById('slotsBar');
     const subEl = document.getElementById('subtitle');
-    const footerEl = document.getElementById('footer');
-    const hTop = topEl ? topEl.offsetHeight : 40;
-    const hBar = barEl ? barEl.offsetHeight : 96;
-    const hSub = subEl ? subEl.offsetHeight : 28;
-    const hFooter = footerEl ? footerEl.offsetHeight : 62;
+    const hTop = topEl ? topEl.offsetHeight : 36;
+    const hBar = barEl ? barEl.offsetHeight : 92;
+    const hSub = subEl ? subEl.offsetHeight : 24;
     const vh = vhPeak || window.innerHeight || 800;
-    const availH = Math.max(220, vh - hTop - hBar - hSub - hFooter - 10);
+    const availH = Math.max(220, vh - hTop - hBar - hSub - 10);
 
     /* 一格多少像素：宽和高都要放得下。
      * 关键点：正常情况下【宽度】是那个更紧的限制（棋盘和屏幕一样宽），
@@ -2155,7 +2155,7 @@
   /* 构建版本号 —— 用来判断浏览器加载的是不是最新代码。
    * 手机上缓存很顽固，出现「行为和预期不一致」时先看这个号。
    * 打开 ?debug=1 会把它显示在页面顶部。 */
-  const BUILD = '2026-10-11-11';
+  const BUILD = '2026-10-11-12';
 
   function findTileConfig(kindId) {
     for (let i = 0; i < TILES.length; i++) {
@@ -2995,8 +2995,9 @@
     });
 
     // 按钮：重新开始 / 弹窗里的按钮（可能是复活，也可能是再来一局）
-    const restartBtn = document.getElementById('restartBtn');
-    if (restartBtn) restartBtn.addEventListener('click', function () { startRound(); });
+    /* 「重新开始」按钮已移除。
+     * 重开的入口：输掉 / 通关的弹窗里的「再来一局」；
+     * 中途想重开就刷新页面（局内进度靠 sessionStorage，本来也不跨局保存）。 */
     if (modalButtonEl) modalButtonEl.addEventListener('click', onModalButtonClick);
 
     // 图鉴：入口按钮 / 关掉 / 详情页关掉

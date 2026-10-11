@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#f3ece2">
   <title>西迁行囊 · 三消小游戏</title>
   <!-- 相对路径引用，所以双击 index.html（file://）和放到静态托管上都能用 -->
-  <link rel="stylesheet" href="style.css?v=2026-10-11-11">
+  <link rel="stylesheet" href="style.css?v=2026-10-11-12">
 </head>
 <body>
 
@@ -86,15 +86,15 @@
       </div>
     </div>
 
-    <!-- 牌堆和按钮之间的空隙：放一句主题小字 -->
+    <!-- 主题小字：呼应一下主题，也把牌堆和下面的元素分开 -->
     <div id="subtitle">
       <p class="subtitle-sub">把散落的行囊，一件件收好</p>
     </div>
 
-    <!-- 底部按钮 -->
-    <footer id="footer">
-      <button type="button" id="restartBtn" class="btn">重新开始</button>
-    </footer>
+    <!-- 底部不再放「重新开始」按钮：
+         去掉它之后主体才能整体居中，画面更干净。
+         需要重开时：输掉/通关的弹窗里都有「再来一局」；
+         中途想重开，刷新页面即可（进度本来就存在 sessionStorage 里）。 -->
   </main>
 
   </div><!-- /#page -->
@@ -164,12 +164,12 @@
     </div>
   </div>
 
-  <script src="tile-story.js?v=2026-10-11-11"></script>
-  <script src="stats-config.js?v=2026-10-11-11"></script>
-  <script src="stats.js?v=2026-10-11-11"></script>
-  <script src="sfx.js?v=2026-10-11-11"></script>
-  <script src="game.js?v=2026-10-11-11"></script>
+  <script src="tile-story.js?v=2026-10-11-12"></script>
+  <script src="stats-config.js?v=2026-10-11-12"></script>
+  <script src="stats.js?v=2026-10-11-12"></script>
+  <script src="sfx.js?v=2026-10-11-12"></script>
+  <script src="game.js?v=2026-10-11-12"></script>
   <!-- fx.js 放最后：它要在 game.js 定义完、页面元素都在之后再挂动效 -->
-  <script src="fx.js?v=2026-10-11-11"></script>
+  <script src="fx.js?v=2026-10-11-12"></script>
 </body>
 </html>
