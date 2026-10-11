@@ -2167,20 +2167,52 @@
    * ------------------------------------------------------------------------*/
   function updateBoard() {
     if (!hasDom) return;
-    for (let i = 0; i < game.board.length; i++) {
+
+    /* ------------------------------------------------------------------------
+     * 牌面分三档，按「离能点的牌有多近」来分（不是按压牌数量）：
+     *   ① 能点        → 正常显示（原色原图案）
+     *   ② 被能点的压住 → 半透明（看得见图案，但明显暗下去）
+     *   ③ 其余（被半透明或更深层的压住）→ 纯色牌背（图案完全藏掉）
+     *
+     * 为什么改成这样：玩家真正关心的是「这张什么时候能轮到」。
+     * 直接压着它的是能点的牌 → 再点掉那一张它就活了，所以给它半透明（提醒「快了」）；
+     * 再往下层的牌还隔着好几步，露出来也没用，干脆藏成牌背，画面干净。
+     * ---------------------------------------------------------------------- */
+    const n = game.board.length;
+
+    // 第一遍：先标出「能点」的牌（身上没有任何牌压着）
+    const free = new Array(n);
+    for (let i = 0; i < n; i++) {
+      free[i] = (game.board[i].blockedBy.length === 0);
+    }
+
+    // 第二遍：按上面三档刷表现
+    for (let i = 0; i < n; i++) {
       const item = game.board[i];
       const el = game.dom.get(item.id);
       if (!el) continue;
-      const n = item.blockedBy.length;              // 压着它的牌有几张
-      const blocked = n > 0;                        // 有牌压着 → 点不了
-      const deep = n >= 2;                          // 压了两张以上 → 画成牌背
 
-      el.classList.toggle('blocked', blocked && !deep);
+      const canClick = free[i];
+
+      /* 判断「压着我的牌里，有没有能点的」。
+       * blockedBy 存的是牌在数组里的下标，可以直接查 free[]。 */
+      let blockedByFree = false;
+      for (let b = 0; b < item.blockedBy.length; b++) {
+        if (free[item.blockedBy[b]]) { blockedByFree = true; break; }
+      }
+
+      const translucent = !canClick && blockedByFree;   // ② 半透明
+      const deep = !canClick && !blockedByFree;         // ③ 纯色牌背
+
+      el.classList.toggle('blocked', translucent);
       el.classList.toggle('deep-blocked', deep);
-      el.setAttribute('aria-disabled', blocked ? 'true' : 'false');
-      el.title = blocked
-        ? ('被 ' + n + ' 张牌压住，点不了' + (deep ? '（牌背）' : '（半透明，还看得见图案）'))
-        : '可以点';
+      el.setAttribute('aria-disabled', canClick ? 'false' : 'true');
+
+      el.title = canClick
+        ? '可以点'
+        : (translucent
+          ? '被能点的牌压着，点掉上面那张就能轮到它'
+          : '还压着好几层，暂时看不到图案');
     }
   }
 
