@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#f3ece2">
   <title>西迁行囊 · 三消小游戏</title>
   <!-- 相对路径引用，所以双击 index.html（file://）和放到静态托管上都能用 -->
-  <link rel="stylesheet" href="style.css?v=2026-10-11-18">
+  <link rel="stylesheet" href="style.css?v=2026-10-11-19">
 </head>
 <body>
 
@@ -117,6 +117,26 @@
     <div class="modal-card escape-card">
       <h2 id="escapeTitle">建议用浏览器打开</h2>
       <p id="escapeLead" class="escape-lead"></p>
+      <!-- 游戏介绍：让第一次打开的人知道这是什么、谁做的、怎么做的。
+           放在"换浏览器"提示的下面，先讲清楚价值，再说怎么换。 -->
+      <div id="escapeIntro" class="escape-intro">
+        <p class="ei-lead">
+          一款以西迁为主题的<b>三消小游戏</b>。翻开一张张牌，把散落的行囊收进行囊，
+          也把十二件物品背后的故事一并收好。
+        </p>
+        <ul class="ei-list">
+          <li><b>玩法</b>　144 张牌、12 类物品，三张相同即消除。牌堆分四层叠压，被压住的点不了；
+              底栏只有 7 格，满格且凑不出三张就算输。</li>
+          <li><b>讲究</b>　难度会跟着你走：上一局用了复活，下一局就给你铺一条好走的路；
+              没用复活，下一局直接把牌打散。</li>
+          <li><b>可看</b>　消掉一组牌就解锁一段知识点，集齐十二件即收满图鉴——
+              从「党的决定就是我们的行动」到「迁校不仅是迁，最难的其实是建」。</li>
+          <li><b>做法</b>　全部手写：没有框架、没有第三方库、不加载任何在线资源，
+              下载完就能离线玩。牌面插画由班上同学绘制，页面用纯 HTML + CSS + 原生 JS 写成，
+              音效也是代码现场合成的（所以一个音频文件都没有）。</li>
+          <li><b>出处</b>　电气 2615 班团日活动作品。</li>
+        </ul>
+      </div>
       <p id="escapeHowto" class="escape-howto"></p>
       <p id="escapeUrl" class="escape-url" tabindex="0"></p>
       <p id="escapeHint" class="escape-hint"></p>
@@ -164,12 +184,12 @@
     </div>
   </div>
 
-  <script src="tile-story.js?v=2026-10-11-18"></script>
-  <script src="stats-config.js?v=2026-10-11-18"></script>
-  <script src="stats.js?v=2026-10-11-18"></script>
-  <script src="sfx.js?v=2026-10-11-18"></script>
-  <script src="game.js?v=2026-10-11-18"></script>
+  <script src="tile-story.js?v=2026-10-11-19"></script>
+  <script src="stats-config.js?v=2026-10-11-19"></script>
+  <script src="stats.js?v=2026-10-11-19"></script>
+  <script src="sfx.js?v=2026-10-11-19"></script>
+  <script src="game.js?v=2026-10-11-19"></script>
   <!-- fx.js 放最后：它要在 game.js 定义完、页面元素都在之后再挂动效 -->
-  <script src="fx.js?v=2026-10-11-18"></script>
+  <script src="fx.js?v=2026-10-11-19"></script>
 </body>
 </html>

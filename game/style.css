@@ -442,6 +442,13 @@ body {
   padding: 22px 20px 18px;
   text-align: center;
   box-shadow: 0 10px 30px rgba(30, 22, 12, 0.30);
+  /* 高度上限 + 内部滚动：
+     引导弹窗加了一段游戏介绍，内容变长；
+     手机上不限制高度的话，底部的按钮会被挤出屏幕外，用户点不到。
+     留 88vh 是为了上下还能看到一点遮罩背景，不像全屏页面。 */
+  max-height: 88vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-card h2 {
@@ -748,7 +755,11 @@ body {
  * （它们的工具栏还会把页面挤矮一点），只能在页面里教用户手动切过去。
  * ==========================================================================*/
 .escape-card {
-  max-width: 320px;
+  /* 比其它弹窗宽一点：里面是成段的介绍文字，太窄会读得很累 */
+  max-width: 360px;
+  text-align: left;
+  /* 底部多留一点：滚到底时两个按钮不会贴着最后一行文字 */
+  padding-bottom: 16px;
 }
 .escape-lead {
   margin: 0 0 12px !important;
@@ -1309,4 +1320,68 @@ body.shaking #app { animation: screenShake 0.46s ease-out; }
 .journey-stop {
   color: #efe3c9;
   text-shadow: 0 1px 5px rgba(0, 0, 0, 0.90);
+}
+
+
+/* ============================================================================
+ * 欢迎弹窗里的「游戏介绍」
+ * ----------------------------------------------------------------------------
+ * 位置：换浏览器提示的下方、"怎么换"的上方。
+ * 排版按「小标题 + 说明」一行一条，左对齐 —— 成段文字居中会很难读。
+ * ==========================================================================*/
+.escape-intro {
+  margin: 14px 0 14px;
+  padding: 12px 12px 10px;
+  background: #f7f2e7;
+  border: 1px solid rgba(150, 128, 96, 0.22);
+  border-radius: 10px;
+}
+
+.escape-intro .ei-lead {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: #3b3226;
+}
+
+.escape-intro .ei-lead b {
+  color: #a94a2c;
+  font-weight: 700;
+}
+
+.escape-intro .ei-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.escape-intro .ei-list li {
+  position: relative;
+  margin: 0 0 8px;
+  padding-left: 2px;
+  font-size: 12.5px;
+  line-height: 1.72;
+  color: #5c5040;
+}
+
+.escape-intro .ei-list li:last-child {
+  margin-bottom: 0;
+}
+
+.escape-intro .ei-list b {
+  display: inline-block;
+  min-width: 34px;
+  margin-right: 4px;
+  font-weight: 700;
+  color: #8a6b3f;
+}
+
+/* 矮屏上把介绍再压紧一点，尽量少滚动 */
+@media (max-height: 700px) {
+  .escape-intro {
+    margin: 10px 0;
+    padding: 10px 10px 8px;
+  }
+  .escape-intro .ei-lead { font-size: 12.5px; margin-bottom: 8px; }
+  .escape-intro .ei-list li { font-size: 12px; line-height: 1.6; margin-bottom: 6px; }
 }

@@ -1667,7 +1667,8 @@
     if (escapeTitleEl) escapeTitleEl.textContent = '建议用浏览器打开';
     if (escapeLeadEl) {
       escapeLeadEl.textContent = (isQQ ? '这里是 QQ 自带的浏览器' : '这里是微信自带的浏览器') +
-        '，页面会被它的工具栏挤矮一点。换个浏览器打开会更舒服（全屏、不挤）。';
+        '，上下会被它的工具栏占掉一截，牌堆会显得挤。' +
+        '换到手机浏览器打开就能全屏显示，牌看得更清楚。';
     }
     /* 不再教「点右上角 ···」—— 各家版本菜单位置不一样，
      * QQ 有些版本右上角根本没有三点，教了反而误导。
@@ -2155,7 +2156,7 @@
   /* 构建版本号 —— 用来判断浏览器加载的是不是最新代码。
    * 手机上缓存很顽固，出现「行为和预期不一致」时先看这个号。
    * 打开 ?debug=1 会把它显示在页面顶部。 */
-  const BUILD = '2026-10-11-18';
+  const BUILD = '2026-10-11-19';
 
   function findTileConfig(kindId) {
     for (let i = 0; i < TILES.length; i++) {
