@@ -1,49 +1,26 @@
 /* ============================================================================
  * 西迁行囊 · 统计配置（你只需要改这个文件）
  * ----------------------------------------------------------------------------
- * 【怎么开通】
- *   1. 打开 https://supabase.com ，用邮箱注册（免费，不用信用卡）
- *   2. 新建一个项目（Project），区域随便选，等它初始化好
- *   3. 左侧「SQL Editor」→ 粘贴下面这段 SQL → Run
- *      （在数据库里建一张计数表 + 打开行级安全策略）
+ * 后端是 Cloudflare Pages Functions + D1（免费），部署说明见 stats-backend/README.md
  *
- *      create table if not exists stats_events (
- *        id          bigserial primary key,
- *        event       text        not null,
- *        count       int         not null default 1,
- *        device_id   text,
- *        created_at  timestamptz not null default now()
- *      );
- *      alter table stats_events enable row level security;
- *      -- 只允许「新增」，不允许改和删：前端拿到的密钥再泄露也改不了旧数据
- *      create policy "anon can insert" on stats_events
- *        for insert to anon with check (true);
- *      -- 允许读取（看板要用）
- *      create policy "anon can read" on stats_events
- *        for select to anon using (true);
- *      create index if not exists stats_events_created_idx
- *        on stats_events (created_at desc);
+ * 【三步搞定】
+ *   1. 按 stats-backend/README.md 把后端部署到 Cloudflare Pages，
+ *      拿到形如 https://xxxx.pages.dev 的地址
+ *   2. 在那里给 Pages 项目设置环境变量 STATS_SECRET（一个随机字符串）
+ *   3. 把下面 apiBase 和 secret 填成对应的值，adminPass 改成你的看板口令
  *
- *   4. 左侧「Project Settings」→「API」，复制两个值填到下面：
- *        Project URL        → url
- *        anon public key    → anonKey
- *   5. 顺手把 adminPass 改成一个只有你知道的口令（看板入口用）
+ * 【不想用了怎么办】
+ *   把 apiBase 和 secret 留空，统计功能会自动关闭，游戏照常玩。
  *
  * 【安全说明】
- *   anonKey 是 Supabase 设计成「可以公开放在前端」的密钥，
- *   真正的保护在数据库的 RLS 策略上（上面 SQL 里那两条）：
- *   匿名用户只能新增和读取，改不了也删不掉已有数据。
- *   ⚠️ 绝对不要把 service_role key 填进来 —— 那个等于管理员密码。
- *
- * 【不想开了怎么办】
- *   把 url 和 anonKey 留空，统计功能会自动关闭，游戏照常玩。
+ *   secret 会出现在网页源码里（前端无法隐藏），所以它只能挡住随手乱试，
+ *   不能算真正的鉴权。表里只有计数、没有敏感信息，团日场景够用。
  * ==========================================================================*/
 window.XXY_STATS_CONFIG = {
-  url: '',           // 例：'https://abcdefgh.supabase.co'
-  anonKey: '',       // 例：'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
-  table: 'stats_events',
+  apiBase: 'https://xxy-stats.pages.dev',   // ← 已部署好
+  secret: 'xqxy-8f3a91c7b2e5',              // ← 和 Cloudflare 上的 STATS_SECRET 一致
 
   adminPass: 'xqxy2026',   // ← 数据看板的口令，记得改成你自己的
 
-  debug: true              // true 时在浏览器控制台打印每次上报，方便调试
+  debug: false             // 上线后关掉；调试时改成 true，控制台会打印每次上报
 };

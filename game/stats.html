@@ -63,7 +63,7 @@
 <body>
 <div class="wrap">
   <h1>西迁行囊 · 数据看板</h1>
-  <p class="sub">打开 / 通关 / 复活 / 图鉴解锁 的累计统计</p>
+  <p class="sub">打开 / 通关 / 复活 / 图鉴解锁 的累计统计（数据来自 Cloudflare D1）</p>
 
   <!-- 口令门（只是防止误点进来，不是安全边界，见页面底部说明） -->
   <div id="gate" class="gate">
@@ -115,8 +115,8 @@
 (function () {
   'use strict';
   var cfg = window.XXY_STATS_CONFIG || {};
-  var REST = (cfg.url || '') + '/rest/v1/' + (cfg.table || 'stats_events');
-  var KEY = cfg.anonKey || '';
+  var API = (cfg.apiBase || '').replace(/\/+$/, '');
+  var SECRET = cfg.secret || '';
   var PASS = cfg.adminPass || '';
 
   var $ = function (id) { return document.getElementById(id); };
@@ -180,25 +180,26 @@
     var msg = $('dashMsg');
     msg.className = 'msg';
     msg.textContent = '读取中…';
-    if (!cfg.url || !KEY) {
+    if (!API || !SECRET) {
       msg.className = 'msg err';
-      msg.textContent = '还没配置后端：请在 stats-config.js 里填 url 和 anonKey。';
+      msg.textContent = '还没配置后端：请在 stats-config.js 里填 apiBase 和 secret。';
       return;
     }
-    fetch(REST + '?select=event,count,device_id,created_at&order=created_at.desc&limit=10000', {
-      headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY }
-    }).then(function (res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    }).then(function (rows) {
-      fmtSummary(rows);
-      buildTable(rows);
-      msg.className = 'msg ok';
-      msg.textContent = '共 ' + rows.length + ' 条记录，' + new Date().toLocaleTimeString() + ' 更新';
-    }).catch(function (err) {
-      msg.className = 'msg err';
-      msg.textContent = '读取失败：' + err + '（检查 url / anonKey / 数据表是否建好）';
-    });
+    fetch(API + '/stats-api?limit=20000&secret=' + encodeURIComponent(SECRET))
+      .then(function (res) {
+        if (res.status === 401) throw new Error('口令不对（secret 和 Cloudflare 上的 STATS_SECRET 不一致）');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      }).then(function (data) {
+        var rows = (data && data.rows) ? data.rows : [];
+        fmtSummary(rows);
+        buildTable(rows);
+        msg.className = 'msg ok';
+        msg.textContent = '共 ' + rows.length + ' 条记录，' + new Date().toLocaleTimeString() + ' 更新';
+      }).catch(function (err) {
+        msg.className = 'msg err';
+        msg.textContent = '读取失败：' + err + '（检查 apiBase / secret / 后端是否部署好）';
+      });
   }
 
   function enter() {
