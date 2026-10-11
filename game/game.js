@@ -24,24 +24,24 @@
    * 分开写是为了让「换素材」和「改文案」互不干扰。
    * ========================================================================*/
   const TILES = [
-    { id: 'suitcase', label: '行李箱', color: '#e8734a', img: null },
-    { id: 'ticket',   label: '火车票', color: '#4a90d9', img: null },
-    { id: 'strawhat', label: '草帽',   color: '#c9a227', img: null },
-    { id: 'book',     label: '讲义',   color: '#5a8f5a', img: null },
-    { id: 'device',   label: '仪器',   color: '#7a6bb5', img: null },
-    { id: 'abacus',   label: '算盘',   color: '#b5563f', img: null },
-    { id: 'badge',    label: '校徽',   color: '#3f6fb5', img: null },
-    { id: 'photo',    label: '老照片', color: '#8a8f98', img: null },
-    { id: 'envelope', label: '家书',   color: '#c96f8a', img: null },
-    { id: 'lamp',     label: '煤油灯', color: '#8a6b3f', img: null },
+    { id: 'suitcase', label: '行李箱', color: '#e8734a', img: 'assets/suitcase.png' },
+    { id: 'ticket',   label: '火车票', color: '#4a90d9', img: 'assets/ticket.png' },
+    { id: 'strawhat', label: '草帽',   color: '#c9a227', img: 'assets/strawhat.png' },
+    { id: 'book',     label: '讲义',   color: '#5a8f5a', img: 'assets/book.png' },
+    { id: 'device',   label: '仪器',   color: '#7a6bb5', img: 'assets/device.png' },
+    { id: 'abacus',   label: '算盘',   color: '#b5563f', img: 'assets/abacus.png' },
+    { id: 'badge',    label: '校徽',   color: '#3f6fb5', img: 'assets/badge.png' },
+    { id: 'photo',    label: '老照片', color: '#8a8f98', img: 'assets/photo.png' },
+    { id: 'envelope', label: '家书',   color: '#c96f8a', img: 'assets/envelope.png' },
+    { id: 'lamp',     label: '煤油灯', color: '#8a6b3f', img: 'assets/lamp.png' },
     /* 下面两件是后来加的：凑够 12 种，好让 144 张牌能分成整组。
      * 颜色特意各占一个新色系（青 / 浅木），避免和上面 10 种撞色 ——
      * 牌缩到 45 像素时，全靠颜色分辨。
      * 扁担最初用的是 #a34a2a（赭红），但和「算盘」#b5563f 的感知距离只有 7.5，
      * 实际看就是同一个颜色，所以改成浅木色 #dba97e：
      *   与算盘的距离 34.5、与最近的煤油灯 26.3、与牌背 22.6，都拉得开。 */
-    { id: 'pen',      label: '钢笔',   color: '#2f7d8a', img: null },
-    { id: 'pole',     label: '扁担',   color: '#dba97e', img: null }
+    { id: 'pen',      label: '钢笔',   color: '#2f7d8a', img: 'assets/pen.png' },
+    { id: 'pole',     label: '扁担',   color: '#dba97e', img: 'assets/pole.png' }
   ];
 
   /* ==========================================================================
@@ -2155,7 +2155,7 @@
   /* 构建版本号 —— 用来判断浏览器加载的是不是最新代码。
    * 手机上缓存很顽固，出现「行为和预期不一致」时先看这个号。
    * 打开 ?debug=1 会把它显示在页面顶部。 */
-  const BUILD = '2026-10-11-15';
+  const BUILD = '2026-10-11-16';
 
   function findTileConfig(kindId) {
     for (let i = 0; i < TILES.length; i++) {
@@ -2174,7 +2174,10 @@
     el.dataset.id = String(item.id);
 
     if (cfg && cfg.img) {
-      // 有真实图片就画图片（同学以后只要在 TILES 里填 img 就行）
+      /* 有插画素材：牌面直接用图铺满。
+       * 加 has-img 类让 CSS 去掉内边距、把底色换成纸白 ——
+       * 插画自带外形轮廓，再缩一圈会显小。 */
+      el.classList.add('has-img');
       const img = document.createElement('img');
       img.className = 'tile-img';
       img.src = cfg.img;
@@ -2332,7 +2335,13 @@
       const itemCfg = findTileConfig(item.kind);
       const baseColor = (itemCfg && itemCfg.color) ? itemCfg.color : '#888';
 
-      if (canClick) {
+      /* 有插画素材的牌【不写色底】—— 交给 CSS 管：
+       *   能点   → 纸白底（.tile.has-img）
+       *   快能点 → 纸白底 + 图案变暗（.tile.has-img.blocked）
+       * 如果这里还写色底，就会变成「色块 + 插画」两层叠着，画面发闷。 */
+      if (itemCfg && itemCfg.img) {
+        el.style.background = '';
+      } else if (canClick) {
         el.style.background = baseColor;
       } else if (translucent) {
         el.style.background = blockTint(baseColor, 0.55);
