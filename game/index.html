@@ -7,57 +7,33 @@
   <meta name="theme-color" content="#f3ece2">
   <title>西迁行囊 · 三消小游戏</title>
   <!-- 相对路径引用，所以双击 index.html（file://）和放到静态托管上都能用 -->
-  <link rel="stylesheet" href="style.css?v=2026-10-11-10">
+  <link rel="stylesheet" href="style.css?v=2026-10-11-11">
 </head>
 <body>
 
-  <!-- ============ 氛围层：纯装饰，不参与任何交互 ============
-       纸纹 + 暗角（CSS 伪元素）+ 飘尘（JS 生成）+ 火车剪影（远景慢速驶过）
-       全部 z-index 在内容之下，pointer-events: none -->
-  <div id="atmos" aria-hidden="true">
-    <!-- 火车剪影：一列老式蒸汽火车，极慢地从左驶到右，贴合西迁主题 -->
-    <div id="trainSilhouette">
-      <svg viewBox="0 0 220 70" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- 车厢 -->
-        <rect x="6" y="26" width="52" height="26" rx="3" fill="#5a4a33"/>
-        <rect x="12" y="32" width="12" height="11" rx="1.5" fill="#f3ece2"/>
-        <rect x="28" y="32" width="12" height="11" rx="1.5" fill="#f3ece2"/>
-        <rect x="44" y="32" width="8" height="11" rx="1.5" fill="#f3ece2"/>
-        <!-- 第二车厢 -->
-        <rect x="62" y="24" width="54" height="28" rx="3" fill="#5a4a33"/>
-        <rect x="68" y="30" width="13" height="12" rx="1.5" fill="#f3ece2"/>
-        <rect x="85" y="30" width="13" height="12" rx="1.5" fill="#f3ece2"/>
-        <rect x="102" y="30" width="9" height="12" rx="1.5" fill="#f3ece2"/>
-        <!-- 车头 -->
-        <rect x="120" y="28" width="34" height="24" rx="3" fill="#4a3d2a"/>
-        <rect x="146" y="34" width="12" height="12" rx="1.5" fill="#f3ece2"/>
-        <!-- 烟囱与烟 -->
-        <rect x="126" y="14" width="9" height="15" rx="2" fill="#4a3d2a"/>
-        <circle cx="131" cy="9" r="5" fill="#5a4a33" opacity="0.55"/>
-        <circle cx="139" cy="4" r="4" fill="#5a4a33" opacity="0.4"/>
-        <circle cx="147" cy="1" r="3" fill="#5a4a33" opacity="0.28"/>
-        <!-- 底盘 -->
-        <rect x="4" y="52" width="152" height="5" rx="2" fill="#4a3d2a"/>
-        <!-- 轮子 -->
-        <circle cx="22" cy="60" r="6" fill="#4a3d2a"/>
-        <circle cx="48" cy="60" r="6" fill="#4a3d2a"/>
-        <circle cx="80" cy="60" r="6.5" fill="#4a3d2a"/>
-        <circle cx="108" cy="60" r="6.5" fill="#4a3d2a"/>
-        <circle cx="138" cy="60" r="7" fill="#4a3d2a"/>
-        <circle cx="156" cy="60" r="5" fill="#4a3d2a"/>
-      </svg>
-    </div>
+  <!-- ============ 背景层：车厢照片 + 压暗 ============
+       固定铺满整个视口（position: fixed），所以内容再多也不会把照片拉变形。
+       两层分开写：photo 放照片，veil 放压暗渐变。
+       都 pointer-events: none，不挡操作。 -->
+  <div id="scene" aria-hidden="true">
+    <div id="scenePhoto"></div>
+    <div id="sceneVeil"></div>
   </div>
 
-  <!-- 顶部一行：左班徽 / 中标题 / 右（小喇叭 + 图鉴按钮） -->
+  <!-- ============ 氛围层：飘尘（JS 生成）============ -->
+  <div id="atmos" aria-hidden="true"></div>
+
+  <!-- ============ 页面主体：背景图 + 内容 都放在这一层里 ============
+       这样背景可以用绝对定位铺满「内容区」，而不是铺满整个视口 ——
+       车厢那种长透视图铺满整屏时，中间会被拉得很怪。 -->
+  <div id="page">
+
+  <!-- 顶部一行：左班徽 / 中标题 / 右图鉴按钮 -->
   <div id="topBar">
     <!-- 班级班徽（放 assets/class-badge.jpg；想换成别的图改 src 即可） -->
     <img id="classBadge" class="top-badge" src="assets/class-badge.jpg" alt="电气 2615 班徽" draggable="false">
 
     <h1 id="gameTitle" class="top-title">西迁行囊</h1>
-
-    <!-- 音效开关：图标由 JS 按状态切换（🔊 / 🔇），状态存在 localStorage -->
-    <button type="button" id="soundBtn" title="音效开关" aria-label="音效开关">&#128266;</button>
 
     <button type="button" id="codexBtn" class="top-codex" title="西迁行囊图鉴">
       <span class="codex-btn-label">图鉴</span>
@@ -67,8 +43,13 @@
   </div>
 
   <main id="app">
-    <!-- 牌堆区：24×24 虚拟棋盘，每张牌是一个绝对定位的 DOM 节点 -->
-    <div id="stage" aria-label="牌堆"></div>
+    <!-- 牌堆区，两层：
+           #stage = 木质桌面（有内边距，四周露出木纹）
+           #board = 牌的定位容器（和棋盘严格等大，牌都塞在这里面）
+         牌是绝对定位的 DOM 节点，坐标按「格」算。 -->
+    <div id="stage">
+      <div id="board" aria-label="牌堆"></div>
+    </div>
 
     <!-- 下方卡槽：按关卡配置的格子数（默认 7），按点击顺序从左往右排 -->
     <div id="slotsBar">
@@ -115,6 +96,8 @@
       <button type="button" id="restartBtn" class="btn">重新开始</button>
     </footer>
   </main>
+
+  </div><!-- /#page -->
 
   <!-- ============ 消牌知识点提示条（自动消失，不挡操作） ============ -->
   <div id="tipbar" class="tipbar" aria-live="polite">
@@ -181,12 +164,12 @@
     </div>
   </div>
 
-  <script src="tile-story.js?v=2026-10-11-10"></script>
-  <script src="stats-config.js?v=2026-10-11-10"></script>
-  <script src="stats.js?v=2026-10-11-10"></script>
-  <script src="sfx.js?v=2026-10-11-10"></script>
-  <script src="game.js?v=2026-10-11-10"></script>
+  <script src="tile-story.js?v=2026-10-11-11"></script>
+  <script src="stats-config.js?v=2026-10-11-11"></script>
+  <script src="stats.js?v=2026-10-11-11"></script>
+  <script src="sfx.js?v=2026-10-11-11"></script>
+  <script src="game.js?v=2026-10-11-11"></script>
   <!-- fx.js 放最后：它要在 game.js 定义完、页面元素都在之后再挂动效 -->
-  <script src="fx.js?v=2026-10-11-10"></script>
+  <script src="fx.js?v=2026-10-11-11"></script>
 </body>
 </html>

@@ -188,25 +188,11 @@
     setJourney(0, 1);
   }
 
-  /* ==========================================================================
-   * ⑦ 音效开关按钮
-   * ========================================================================*/
-  function initSoundButton() {
-    var btn = document.getElementById('soundBtn');
-    if (!btn || !SND) return;
-    function paint() {
-      var on = SND.isEnabled();
-      btn.textContent = on ? '\uD83D\uDD0A' : '\uD83D\uDD07';   // 🔊 / 🔇
-      btn.classList.toggle('muted', !on);
-      btn.title = on ? '音效：开（点击关闭）' : '音效：关（点击开启）';
-    }
-    paint();
-    btn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      SND.toggle();
-      paint();
-    });
-  }
+  /* 音效开关按钮已经去掉了 —— 音效改为常开，不给开关。
+   * 判断依据：这个游戏音效是体验的一部分，不需要让玩家额外做决定；
+   * 而且一个"能关掉"的按钮反而会让人犹豫要不要关。
+   * （真需要静音的话，手机本身的音量键或静音档就够了。）
+   * sfx.js 里还留着 isEnabled/toggle 接口，将来想加回开关直接调即可。 */
 
   /* ==========================================================================
    * ⑧ 第一次交互时解锁音频
@@ -236,7 +222,6 @@
   window.XXYFX = {
     init: function () {
       spawnDust();
-      initSoundButton();
       initAudioUnlock();
       resetJourney();
     },

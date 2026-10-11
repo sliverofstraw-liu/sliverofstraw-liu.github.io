@@ -1499,6 +1499,10 @@
   /* DOM 引用。用 typeof 保护是为了能在 node 里 require 做算法自检。 */
   const hasDom = (typeof document !== 'undefined');
   const stageEl       = hasDom ? document.getElementById('stage') : null;
+  /* 牌的容器。桌面（#stage）有内边距用来露出木纹，
+   * 所以牌不能直接塞进 stage —— 否则定位原点会偏。
+   * #board 和棋盘区严格等大，牌的坐标体系不变。 */
+  const boardEl       = hasDom ? document.getElementById('board') : null;
   const slotsEl       = hasDom ? document.getElementById('slots') : null;
   const levelNameEl   = hasDom ? document.getElementById('levelName') : null;
   const remainEl      = hasDom ? document.getElementById('remainCount') : null;
@@ -2072,7 +2076,11 @@
     if (!hasDom) return;
     const slotCount = game.level ? game.level.slots : 7;
 
-    const availW = Math.min(window.innerWidth, document.documentElement.clientWidth) - 16;
+    /* 牌堆外圈「桌沿」的宽度（CSS 里叫 --stage-pad）。
+     * 桌面要有内边距才能露出木纹，但这份宽度必须在算棋盘尺寸时就扣掉，
+     * 否则 #stage 会比可用宽度宽出一圈，手机上出现横向滚动条。 */
+    const stagePad = 14;
+    const availW = Math.min(window.innerWidth, document.documentElement.clientWidth) - 16 - stagePad * 2;
 
     // 高度也要留够：顶部按钮行 + 牌堆 + 底栏 + 主题小字 + 按钮
     const topEl = document.getElementById('topBar');
@@ -2099,6 +2107,8 @@
     const root = document.documentElement;
     root.style.setProperty('--cell', cell + 'px');
     root.style.setProperty('--board', boardPx + 'px');
+    /* 桌沿宽度交给 CSS 用（桌面 padding），和上面扣掉的值保持一致 */
+    root.style.setProperty('--stage-pad', stagePad + 'px');
     root.style.setProperty('--slot', cell + 'px');
     root.style.setProperty('--slots', String(slotCount));
 
@@ -2145,7 +2155,7 @@
   /* 构建版本号 —— 用来判断浏览器加载的是不是最新代码。
    * 手机上缓存很顽固，出现「行为和预期不一致」时先看这个号。
    * 打开 ?debug=1 会把它显示在页面顶部。 */
-  const BUILD = '2026-10-11-10';
+  const BUILD = '2026-10-11-11';
 
   function findTileConfig(kindId) {
     for (let i = 0; i < TILES.length; i++) {
@@ -2186,12 +2196,16 @@
   // 整局开始时把所有牌节点一次建好（避免每次点击都重建 DOM）
   function buildTileNodes() {
     if (!hasDom) return;
+    /* 兜底：万一 #board 不存在（比如浏览器还吃着旧 HTML 的缓存），
+     * 就退回直接往 #stage 里塞，至少游戏能玩，不会白屏。 */
+    const host = boardEl || stageEl;
+    if (!host) return;
     for (let i = 0; i < game.board.length; i++) {
       const item = game.board[i];
       const el = createTileNode(item);
       el.addEventListener('click', onTileClick);
       game.dom.set(item.id, el);
-      stageEl.appendChild(el);
+      host.appendChild(el);
       placeNode(el, item, false);
     }
 
@@ -2811,7 +2825,9 @@
     game.reviveLeft = reviveCfg.times || 0;
     game.dom.clear();
     if (hasDom) {
-      stageEl.innerHTML = '';
+      /* 只清牌，不能清 #stage —— 桌面是画在它和它的伪元素上的。
+         清 stage 会把桌面一起清掉。 */
+      if (boardEl) boardEl.innerHTML = '';
       slotsEl.innerHTML = '';
     }
     closeModal();

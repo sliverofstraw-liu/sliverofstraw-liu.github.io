@@ -24,11 +24,10 @@
   var master = null;
   var enabled = true;
 
-  // 读上次的选择（默认开启）
-  try {
-    var saved = localStorage.getItem(STORE_KEY);
-    if (saved === '0') enabled = false;
-  } catch (e) { /* 隐私模式下读不到，就用默认值 */ }
+  /* 音效【常开】：不再读 localStorage 里的历史开关。
+   * 为什么把这段去掉：既然界面上没有开关按钮了，就不该还受以前
+   * 误触关掉的影响 —— 否则会出现"我从没关过声音，但它就是没声"的怪事。 */
+  enabled = true;
 
   function ensureCtx() {
     if (ctx) return ctx;
@@ -99,9 +98,10 @@
     },
     isEnabled: function () { return enabled; },
     /* 切换开关，返回切换后的状态 */
+    /* 切换开关：界面上已经没有按钮了，这个接口留着备用。
+     * 注意不再写 localStorage —— 免得某次误触导致以后一直没声音。 */
     toggle: function () {
       enabled = !enabled;
-      try { localStorage.setItem(STORE_KEY, enabled ? '1' : '0'); } catch (e) {}
       if (enabled) {
         API.unlock();
         API.click();                 // 开的时候响一下，让人知道生效了
