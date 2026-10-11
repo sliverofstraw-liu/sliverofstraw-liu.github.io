@@ -2630,7 +2630,45 @@
   /* ==========================================================================
    * 十六、启动（只在浏览器里跑；node 里 require 时不会执行，方便做算法自检）
    * ========================================================================*/
+  /* --------------------------------------------------------------------------
+   * 测试通道：直接跳到通关页，方便看效果 / 给别人演示
+   * --------------------------------------------------------------------------
+   * 用法（在网址后面加参数）：
+   *   ?test=win          → 立刻跳到通关页，名次按真实数据查
+   *   ?test=win&rank=7   → 跳到通关页，并把名次固定显示成 7（不查后端）
+   *
+   * 为什么做成参数而不是按钮：正式页面上不希望出现「测试」入口，
+   * 参数方式随手能加、也不会被普通玩家误触。
+   * ------------------------------------------------------------------------ */
+  function checkTestRoute() {
+    let params;
+    try {
+      params = new URLSearchParams(location.search);
+    } catch (e) {
+      return false;          // 老浏览器不支持就跳过，不影响正常玩
+    }
+    if (params.get('test') !== 'win') return false;
+
+    // 传了 rank 就把它当成本局名次，通关页会直接用，不去查后端
+    const fakeRank = params.get('rank');
+    try {
+      sessionStorage.setItem('xxy_last_result', JSON.stringify({
+        mode: params.get('mode') || 'hard',
+        reviveUsed: Number(params.get('revive') || 0),
+        test: true
+      }));
+      if (fakeRank !== null) sessionStorage.setItem('xxy_test_rank', String(fakeRank));
+      else sessionStorage.removeItem('xxy_test_rank');
+    } catch (e) { /* 存不了也照跳，通关页会退化成查后端 */ }
+
+    location.replace('win.html');
+    return true;
+  }
+
   function init() {
+    // 测试通道要最先判断：命中就直接离开这个页面
+    if (checkTestRoute()) return;
+
     // 统计：打开链接次数（每次进页面记一次）
     if (hasDom && window.XXYStats) {
       window.XXYStats.init();

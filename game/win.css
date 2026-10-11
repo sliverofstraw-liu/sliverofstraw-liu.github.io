@@ -18,6 +18,10 @@
 }
 
 /* ---------- 背景：滚动名言 ---------- */
+/* ---------- 背景：弹幕式名言 ----------
+ * 每条名言是独立一条弹幕，从左往右飞【一次】就停在屏幕外。
+ * 垂直位置 / 字号 / 速度 / 出发时间都由 JS 逐个设定（大小刻意不统一）。
+ * ---------------------------------------------------------------------- */
 .quote-stage {
   position: fixed;
   inset: 0;
@@ -26,56 +30,49 @@
   z-index: 0;
 }
 
-.quote-track {
+/* 一条弹幕：绝对定位在某个高度，整条从左往右平移过去 */
+.danmu {
   position: absolute;
-  top: 0;
   left: 0;
-  width: 100%;
-  /* 首尾各留出一点，避免第一条名言一上来就贴着屏幕顶边 */
-  padding: 14px 0 0;
-  animation-name: quoteScroll;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  /* 关键：不换行，否则长句子会被折成两行 */
+  white-space: nowrap;
+  /* 起始位置：整条推到屏幕左边外面 */
+  transform: translateX(-100%);
+  animation-name: danmuFly;
   animation-timing-function: linear;
-  animation-iteration-count: infinite;
+  animation-iteration-count: 1;      /* 只飞一次，不循环 */
+  animation-fill-mode: forwards;     /* 飞完停在屏幕外，不会回来 */
   will-change: transform;
+  /* 文字要「明显」：底色描边 + 暖色微光，保证压在牌堆背景上也读得清 */
+  text-shadow:
+    0 0 3px rgba(20, 15, 8, 0.9),
+    0 1px 6px rgba(0, 0, 0, 0.75),
+    0 0 18px rgba(240, 214, 154, 0.22);
 }
 
-/* 无缝循环的原理：
- * JS 把名言池【复制两份】首尾相接，轨道高度 = 2 × 一份内容。
- * 动画从 0 平移到 -50%（正好是一份内容的高度），
- * 此时画面和第二份的起点完全重合 → 视觉上无接缝。
- * 注意：不能给轨道加 100vh 之类的 padding 去「垫高度」，
- * 否则起始位置会把名言推出视口外，开场就是一屏空白。 */
-@keyframes quoteScroll {
-  from { transform: translateY(0); }
-  to   { transform: translateY(-50%); }
+@keyframes danmuFly {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100vw); }
 }
 
-.quote-item {
-  padding: 0 26px;
-  margin: 0 0 46px;
-  text-align: center;
-}
-
-.quote-text {
-  margin: 0;
-  font-size: clamp(15px, 4.4vw, 21px);
-  line-height: 1.85;
-  font-weight: 500;
-  color: rgba(246, 240, 228, 0.34);
+.danmu-text {
+  font-weight: 600;
   letter-spacing: 0.04em;
-  /* 微微的暖色描边，像旧纸张上的字 */
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  color: rgba(253, 250, 242, 0.96);
+  line-height: 1.3;
 }
 
-.quote-by {
-  margin: 8px 0 0;
-  font-size: clamp(11px, 3.1vw, 13px);
-  line-height: 1.6;
-  color: rgba(216, 198, 168, 0.26);
+.danmu-by {
+  font-weight: 400;
+  font-size: 0.56em;
   letter-spacing: 0.06em;
+  color: rgba(240, 214, 154, 0.62);
 }
 
-/* 一层渐变压暗：让中间的内容清楚，边缘的名言淡出 */
+/* 遮罩：中间加一层很淡的暗色，保证前景的名次/十六字/按钮始终清晰 */
 .quote-veil {
   position: fixed;
   inset: 0;
@@ -84,16 +81,13 @@
   /* 中间压得厚一点：前景那几行字要能看清；
      上下两头留淡一些，让滚动的名言露出来当氛围。 */
   background:
-    radial-gradient(ellipse 84% 50% at 50% 46%,
-      rgba(34, 27, 18, 0.98) 0%,
-      rgba(34, 27, 18, 0.96) 40%,
-      rgba(34, 27, 18, 0.80) 68%,
-      rgba(34, 27, 18, 0.55) 100%),
-    linear-gradient(180deg,
-      rgba(34, 27, 18, 0.62) 0%,
-      rgba(34, 27, 18, 0.55) 18%,
-      rgba(34, 27, 18, 0.55) 82%,
-      rgba(34, 27, 18, 0.72) 100%);
+    /* 中间（前景文字区）压得厚，保证名次卡和十六字读得清；
+       上下两头薄，让弹幕飞过时看得见 —— 兼顾「明显」和「不打架」。 */
+    radial-gradient(ellipse 78% 46% at 50% 48%,
+      rgba(30, 24, 16, 0.90) 0%,
+      rgba(30, 24, 16, 0.86) 46%,
+      rgba(30, 24, 16, 0.42) 78%,
+      rgba(30, 24, 16, 0.16) 100%);
 }
 
 /* ---------- 前景：成绩 ---------- */
@@ -185,11 +179,12 @@
   .rank-num { margin: 5px 0; }
   .rank-num #rankNum { font-size: 42px; }
   .spirit { margin-bottom: 14px; gap: 4px 12px; font-size: 12px; }
-  .quote-item { margin-bottom: 34px; }
+  .danmu { gap: 6px; }
 }
 
 /* ---------- 尊重「减少动态效果」的系统设置 ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .quote-track { animation: none; }
-  .quote-stage { opacity: 0.55; }
+  /* 系统开了「减少动态效果」就不飞了，改成静静显示几条 */
+  .danmu { animation: none; transform: none; position: static; display: block; }
+  .quote-stage { opacity: 0.5; }
 }
