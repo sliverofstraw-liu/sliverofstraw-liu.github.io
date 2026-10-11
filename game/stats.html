@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>西迁行囊 · 数据看板</title>
+  <style>
+    :root {
+      --bg: #f3ece2; --card: #fffdf8; --ink: #3b3226;
+      --ink-soft: #8a7d69; --line: #cdbfa8; --accent: #b5563f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 18px 14px 40px;
+      background: linear-gradient(180deg, var(--bg) 0%, #e6dccd 100%);
+      color: var(--ink); min-height: 100vh;
+      font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .sub { margin: 0 0 18px; font-size: 13px; color: var(--ink-soft); }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    .gate {
+      background: var(--card); border-radius: 14px; padding: 18px;
+      box-shadow: 0 8px 24px rgba(30,22,12,.12);
+    }
+    .gate p { margin: 0 0 12px; font-size: 13.5px; line-height: 1.6; }
+    input {
+      width: 100%; padding: 11px 12px; font-size: 15px; font-family: inherit;
+      border: 1px solid var(--line); border-radius: 9px; margin-bottom: 12px;
+      background: #fff;
+    }
+    button {
+      min-height: 44px; padding: 10px 18px; font-family: inherit; font-size: 15px;
+      font-weight: 600; color: #fff; background: #3f6fb5; border: 0;
+      border-radius: 9px; cursor: pointer;
+    }
+    button:active { transform: translateY(1px); }
+    button.ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
+    @media (min-width: 560px) { .cards { grid-template-columns: repeat(4, 1fr); } }
+    .card {
+      background: var(--card); border-radius: 12px; padding: 14px 12px;
+      box-shadow: 0 2px 8px rgba(60,45,25,.08);
+    }
+    .card .k { font-size: 12px; color: var(--ink-soft); margin-bottom: 6px; }
+    .card .v { font-size: 26px; font-weight: 700; line-height: 1.1; }
+    .card .u { font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden; }
+    th, td { padding: 9px 10px; font-size: 13px; text-align: right; border-bottom: 1px solid #efe7db; }
+    th:first-child, td:first-child { text-align: left; }
+    th { background: #f7f2e8; font-weight: 600; color: var(--ink-soft); font-size: 12px; }
+    tr:last-child td { border-bottom: 0; }
+    .msg { margin-top: 12px; font-size: 13px; }
+    .msg.err { color: #8a3a2a; }
+    .msg.ok { color: #2f5a2f; }
+    .hint { margin-top: 16px; font-size: 12px; line-height: 1.7; color: var(--ink-soft); }
+    code { background: #efe7db; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>西迁行囊 · 数据看板</h1>
+  <p class="sub">打开 / 通关 / 复活 / 图鉴解锁 的累计统计</p>
+
+  <!-- 口令门（只是防止误点进来，不是安全边界，见页面底部说明） -->
+  <div id="gate" class="gate">
+    <p>请输入查看口令（在 <code>stats-config.js</code> 里设置）：</p>
+    <input type="password" id="pass" placeholder="口令" autocomplete="off">
+    <div class="row">
+      <button id="enterBtn">查看数据</button>
+      <button id="clearBtn" class="ghost">清除口令记录</button>
+    </div>
+    <div id="gateMsg" class="msg err"></div>
+  </div>
+
+  <!-- 数据区 -->
+  <div id="dash" class="hidden">
+    <div class="cards">
+      <div class="card"><div class="k">打开链接</div><div class="v" id="cOpen">—</div><div class="u" id="uOpen"></div></div>
+      <div class="card"><div class="k">通关</div><div class="v" id="cWin">—</div><div class="u" id="uWin"></div></div>
+      <div class="card"><div class="k">复活</div><div class="v" id="cRevive">—</div><div class="u" id="uRevive"></div></div>
+      <div class="card"><div class="k">图鉴解锁</div><div class="v" id="cCodex">—</div><div class="u" id="uCodex"></div></div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>日期</th><th>打开</th><th>通关</th><th>失败</th><th>复活</th><th>图鉴</th><th>设备数</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+
+    <div class="row" style="margin-top:14px">
+      <button id="refreshBtn">刷新</button>
+      <button id="outBtn" class="ghost">退出</button>
+    </div>
+    <div id="dashMsg" class="msg"></div>
+
+    <p class="hint">
+      「打开」= 进页面次数，不等于人数；「设备数」按浏览器本地标识去重。<br>
+      失败次数是顺手记的，能看出大家卡在哪一关。<br>
+      <strong>提醒</strong>：这是纯静态页面，口令只是防误点，不是真正的权限控制 ——
+      谁看了源码都能绕过。数据本身不敏感（就是几个计数），所以够用；
+      真要做严格权限，得给这个页面单独接一道后端鉴权。
+    </p>
+  </div>
+</div>
+
+<script src="stats-config.js"></script>
+<script>
+(function () {
+  'use strict';
+  var cfg = window.XXY_STATS_CONFIG || {};
+  var REST = (cfg.url || '') + '/rest/v1/' + (cfg.table || 'stats_events');
+  var KEY = cfg.anonKey || '';
+  var PASS = cfg.adminPass || '';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var gate = $('gate'), dash = $('dash');
+
+  function showDash(on) {
+    gate.className = on ? 'gate hidden' : 'gate';
+    dash.className = on ? '' : 'hidden';
+  }
+
+  function fmtSummary(rows) {
+    var sum = { open: 0, win: 0, lose: 0, revive: 0, codex: 0 };
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (sum[r.event] !== undefined) sum[r.event] += r.count;
+    }
+    $('cOpen').textContent = sum.open;
+    $('cWin').textContent = sum.win;
+    $('cRevive').textContent = sum.revive;
+    $('cCodex').textContent = sum.codex;
+    $('uWin').textContent = sum.open ? ('通关率 ' + (sum.win / sum.open * 100).toFixed(1) + '%') : '';
+    $('uRevive').textContent = sum.open ? ('人均 ' + (sum.revive / sum.open).toFixed(2) + ' 次') : '';
+    $('uCodex').textContent = sum.open ? ('人均 ' + (sum.codex / sum.open).toFixed(2) + ' 个') : '';
+    $('uOpen').textContent = '累计进页面';
+  }
+
+  function buildTable(rows) {
+    // 按「日期 + 事件」聚合
+    var byDay = {};
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var day = (r.created_at || '').slice(0, 10) || '未知';
+      if (!byDay[day]) byDay[day] = { open: 0, win: 0, lose: 0, revive: 0, codex: 0, devices: {} };
+      if (byDay[day][r.event] !== undefined) byDay[day][r.event] += r.count;
+      if (r.device_id) byDay[day].devices[r.device_id] = 1;
+    }
+    var days = Object.keys(byDay).sort().reverse();
+    var tb = $('tbody');
+    tb.innerHTML = '';
+    if (!days.length) {
+      var tr = document.createElement('tr');
+      var td = document.createElement('td');
+      td.colSpan = 7; td.textContent = '还没有数据'; td.style.textAlign = 'center';
+      tr.appendChild(td); tb.appendChild(tr);
+      return;
+    }
+    for (var d = 0; d < days.length; d++) {
+      var day = days[d], v = byDay[day];
+      var tr2 = document.createElement('tr');
+      var cells = [day, v.open, v.win, v.lose, v.revive, v.codex, Object.keys(v.devices).length];
+      for (var c = 0; c < cells.length; c++) {
+        var td2 = document.createElement('td');
+        td2.textContent = cells[c];
+        tr2.appendChild(td2);
+      }
+      tb.appendChild(tr2);
+    }
+  }
+
+  function load() {
+    var msg = $('dashMsg');
+    msg.className = 'msg';
+    msg.textContent = '读取中…';
+    if (!cfg.url || !KEY) {
+      msg.className = 'msg err';
+      msg.textContent = '还没配置后端：请在 stats-config.js 里填 url 和 anonKey。';
+      return;
+    }
+    fetch(REST + '?select=event,count,device_id,created_at&order=created_at.desc&limit=10000', {
+      headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY }
+    }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }).then(function (rows) {
+      fmtSummary(rows);
+      buildTable(rows);
+      msg.className = 'msg ok';
+      msg.textContent = '共 ' + rows.length + ' 条记录，' + new Date().toLocaleTimeString() + ' 更新';
+    }).catch(function (err) {
+      msg.className = 'msg err';
+      msg.textContent = '读取失败：' + err + '（检查 url / anonKey / 数据表是否建好）';
+    });
+  }
+
+  function enter() {
+    var v = $('pass').value;
+    if (PASS && v !== PASS) {
+      $('gateMsg').textContent = '口令不对，再试一次。';
+      return;
+    }
+    $('gateMsg').textContent = '';
+    try { sessionStorage.setItem('xxy_admin_ok', '1'); } catch (e) {}
+    showDash(true);
+    load();
+  }
+
+  $('enterBtn').addEventListener('click', enter);
+  $('pass').addEventListener('keydown', function (e) { if (e.key === 'Enter') enter(); });
+  $('clearBtn').addEventListener('click', function () {
+    try { sessionStorage.removeItem('xxy_admin_ok'); } catch (e) {}
+    $('gateMsg').textContent = '已清除，下次要重新输口令。';
+  });
+  $('refreshBtn').addEventListener('click', load);
+  $('outBtn').addEventListener('click', function () {
+    try { sessionStorage.removeItem('xxy_admin_ok'); } catch (e) {}
+    showDash(false);
+  });
+
+  // 本次会话里输过口令就直接进
+  try {
+    if (sessionStorage.getItem('xxy_admin_ok') === '1') { showDash(true); load(); }
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>

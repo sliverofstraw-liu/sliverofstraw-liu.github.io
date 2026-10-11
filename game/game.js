@@ -1755,6 +1755,13 @@
     }, 3200);
   }
 
+  /* 统计埋点：统一从这里调，统计脚本没加载 / 出错都不会影响游戏 */
+  function track(event, times) {
+    try {
+      if (typeof window !== 'undefined' && window.XXYStats) window.XXYStats.track(event, times);
+    } catch (e) { /* 统计绝不影响玩 */ }
+  }
+
   /* 提示条只留给「西迁知识点」。
    * 像开局、复活这类状态信息走这里 —— 只记 console，不占提示条，
    * 否则玩家分不清哪条是历史知识、哪条是游戏状态。 */
@@ -1940,6 +1947,7 @@
       game.knowledge[kindId] = true;
       saveKnowledge();
       updateCodexBadge();
+      track('codex');    // 统计：图鉴解锁次数（只记第一次，重复解锁不记）
     }
 
     // 提示条只在「这一局首次消掉它」时弹。
@@ -2469,6 +2477,7 @@
     // 3) 扣掉一次机会，关掉弹窗，继续打
     game.reviveLeft--;
     game.reviveUsed++;   // 记一笔：下次开局用复活次数算难度
+    track('revive');     // 统计：复活次数
     game.over = false;
     closeModal();
     refreshAll();
@@ -2517,6 +2526,8 @@
 
   function endGame(win, title, hint) {
     game.over = true;
+    // 统计：通关次数 / 失败次数
+    track(win ? 'win' : 'lose');
     if (!hasDom) return;
     // 结束/失败都要把答题区收起来，免得下次弹窗还挂着上一题的残留
     clearQuiz();
@@ -2666,6 +2677,12 @@
    * 十六、启动（只在浏览器里跑；node 里 require 时不会执行，方便做算法自检）
    * ========================================================================*/
   function init() {
+    // 统计：打开链接次数（每次进页面记一次）
+    if (hasDom && window.XXYStats) {
+      window.XXYStats.init();
+      track('open');
+    }
+
     // 先量一次真实视口高度（并连量几帧取最大值），再据此算格子大小
     sampleViewportHeight();
     applySize();
