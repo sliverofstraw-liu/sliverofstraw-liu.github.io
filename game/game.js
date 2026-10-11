@@ -33,7 +33,12 @@
     { id: 'badge',    label: '校徽',   color: '#3f6fb5', img: null },
     { id: 'photo',    label: '老照片', color: '#8a8f98', img: null },
     { id: 'envelope', label: '家书',   color: '#c96f8a', img: null },
-    { id: 'lamp',     label: '煤油灯', color: '#8a6b3f', img: null }
+    { id: 'lamp',     label: '煤油灯', color: '#8a6b3f', img: null },
+    /* 下面两件是后来加的：凑够 12 种，好让 144 张牌能分成整组。
+     * 颜色特意各占一个新色系（青 / 赭），避免和上面 10 种撞色 ——
+     * 牌缩到 45 像素时，全靠颜色分辨。 */
+    { id: 'pen',      label: '钢笔',   color: '#2f7d8a', img: null },
+    { id: 'pole',     label: '扁担',   color: '#a34a2a', img: null }
   ];
 
   /* ==========================================================================
@@ -92,18 +97,22 @@
    *           2 = 每层错开 2 格（挡得狠、开局可点少、压抑）。这个数字很影响手感。
    * revive  ：复活配置。{ times: 允许复活次数, remove: 复活时从底栏移出几张 }
    * 每种图案的张数 = total / tilePool.length，要求它是 3 的倍数。
-   *   10 种 × 12 张 = 120 张 → 每种 12 张，12 是 3 的倍数 ✔
+   *   12 种 × 12 张 = 144 张 → 每种 12 张，12 是 3 的倍数 ✔
    * ========================================================================*/
   const LEVELS = [
     {
       name: '第一关 · 西迁行囊',
-      tilePool: TILES,             // 10 种
-      total: 120,                  // 120 张 = 10 种 × 12 张
+      tilePool: TILES,             // 12 种
+      total: 144,                  // 144 张 = 12 种 × 12 张
       layers: 4,                   // 4 层
       slots: 7,                    // 7 个格子（牌变多了，底栏也放宽 1 格）
-      shrink: 2,                   // 逐层向中心收 2 格
+      /* 逐层向中心收几格。这直接决定每层有多少地方摆牌 ——
+       * 144 张比原来的 120 张多，收 2 格就摆不下了（实测只能摆进 112~128 张），
+       * 必须放宽到 1 格，才能精确摆满 144 张。 */
+      shrink: 1,
       encode: 'ramp',              // 前半段保证好解、后半段上难度（见 dealRamp）
       opening: 18,                 // 开局可点的上限。实测 12 会直接堵死（只够填满底栏、凑不出三张），18 是安全下限
+                                   // 144 张 + shrink 1 时实测均值约 14，仍在安全范围
       offset: 1,                   // 层间错开 1 格 → 牌堆高、开局能点的多
       revive: { times: 1, remove: 3 }, // 能复活 1 次，复活时从底栏移出 3 件物品
       // 前几成算「前半段」：这一段会严格保证每一步都轻松（占用低），
@@ -344,14 +353,14 @@
    * @param {number} hardOccupancy 后半段最多允许占几格
    */
   function dealRamp(n, kindCount, slotCap, easyRatio, hardOccupancy, requireSolve) {
-    const groups = n / 3;                          // 120 张 → 40 组
+    const groups = n / 3;                          // 144 张 → 48 组
     const perKind = groups / kindCount;            // 每种图案分到几组
     if (perKind !== Math.floor(perKind)) return null;
 
     const easyGroups = Math.round(groups * easyRatio);
     const hardGroups = groups - easyGroups;
 
-    /* ---------- 位置：120 张正好占满 120 个位置，必须算准 ----------
+    /* ---------- 位置：144 张正好占满 144 个位置，必须算准 ----------
      * 前半段：组间距 2、三张跨度 3 → 第 j 组占 (2j, 2j+1, 2j+3)
      *         这样相邻两组错开，占用不高但比「三张挨着」有意思。
      * 后半段：接着往后排，组间距 3、三张跨度 3 → 三张紧挨，
@@ -2111,7 +2120,7 @@
   /* 构建版本号 —— 用来判断浏览器加载的是不是最新代码。
    * 手机上缓存很顽固，出现「行为和预期不一致」时先看这个号。
    * 打开 ?debug=1 会把它显示在页面顶部。 */
-  const BUILD = '2026-10-11-6';
+  const BUILD = '2026-10-11-7';
 
   function findTileConfig(kindId) {
     for (let i = 0; i < TILES.length; i++) {
