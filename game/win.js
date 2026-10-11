@@ -122,4 +122,21 @@
   /* ---------- 启动 ---------- */
   buildDanmu();
   loadRank();
+  cheongsamWinSound();
+
+  /* 通关页的「胜利音」。
+   * 主游戏在跳转前已经放过一段上行音阶 + 汽笛了，这里再放一次会不会重复？
+   * 不会 —— 主游戏那段是为了"跳转前留个记忆点"，而这一页是玩家真正看到
+   * 名次的时刻，配一段更完整的胜利音更合适。
+   * 注意：手机浏览器禁止自动出声，所以如果 AudioContext 还没解锁，
+   * 会在玩家第一次点屏幕时补放（下面的 unlock 监听）。 */
+  function cheongsamWinSound() {
+    var s = window.XXYSound;
+    if (!s) return;
+    if (!s.isEnabled()) return;         // 玩家关掉了音效就一声不响
+    try {
+      s.unlock();
+      s.win();
+    } catch (e) { /* 忽略 */ }
+  }
 })();
