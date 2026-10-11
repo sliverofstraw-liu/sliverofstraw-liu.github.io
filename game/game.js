@@ -755,6 +755,7 @@
         if (!rectsOverlap(upper, lower)) continue; // 矩形不重叠 → 压不着
         if (upper.level < lower.level) continue;   // 层号更小 → 不压
         // 走到这里：重叠 且（层号更大 或 同层但编号更靠后）→ upper 压住 lower
+        // 存的是【牌的 id】，不是数组下标 —— 消费方必须按 id 查（见 updateBoard）
         lower.blockedBy.push(upper.id);
       }
     }
@@ -2156,6 +2157,26 @@
     }
   }
 
+  /* 把物品本色算成「淡色块」用的颜色。
+   * 做法：把本色和页面底色按比例混合 —— 混得越多越淡。
+   * 这样「快能点」那档既有辨识度（淡蓝=火车票、淡绿=讲义），
+   * 又不会像满饱和色块那样抢眼。
+   * @param {string} hex 物品本色，形如 '#e8734a'
+   * @param {number} ratio 本色占多少（0~1），越小越淡
+   */
+  function blockTint(hex, ratio) {
+    const base = [243, 236, 226];        // 页面底色（奶油色），和棋盘底一致
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+    if (!m) return 'rgba(214, 204, 188, 1)';   // 颜色读不出来就给个中性灰
+    const v = parseInt(m[1], 16);
+    const c = [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+    const out = c.map(function (x, i) {
+      const mixed = Math.round(x * ratio + base[i] * (1 - ratio));
+      return Math.max(0, Math.min(255, mixed));
+    });
+    return 'rgb(' + out[0] + ',' + out[1] + ',' + out[2] + ')';
+  }
+
   /* --------------------------------------------------------------------------
    * 刷新牌面表现：分三档，按「离能点的牌有多近」来分
    * --------------------------------------------------------------------------
@@ -2182,26 +2203,49 @@
     if (!hasDom) return;
 
     const n = game.board.length;
-    const canClickArr = new Array(n);
-    const shallow = new Array(n);        // 是否「被能点的牌压着」
 
-    // A. 标出能点的
+    /* ------------------------------------------------------------------------
+     * ⚠️ 这里必须【按 id 查】，不能按数组下标查！
+     * ------------------------------------------------------------------------
+     * computeBlocked 往 blockedBy 里存的是【牌的 id】（lower.blockedBy.push(upper.id)）。
+     * 而开局时 id 恰好等于数组下标（0,1,2…119），所以以前那版
+     *   canClickArr[by[b]]
+     * 看起来是对的 —— 但一旦点掉几张牌、board 数组变短，
+     * 下标就和 id 脱钩了（实测点了 5 张后 115 张里有 109 张 id≠下标），
+     * 再按下标去查就会读到别的牌、甚至越界，
+     * 结果就是「堆叠没变，但一批牌的显示档位突然变了」。
+     *
+     * 所以下面统一用 id 做键：
+     *   freeById    id → 这张牌现在能不能点
+     *   inSlotById  id → 这张牌是不是已经进卡槽了
+     * ---------------------------------------------------------------------- */
+    const freeById = Object.create(null);
+    const inSlotById = Object.create(null);
+
+    // A. 标出能点的牌
+    //    注意：刚点过、正在往卡槽里放的牌还留在 board 里（inSlot=1），
+    //    它马上就要离开牌堆，所以【不能再算作遮挡】——
+    //    否则它压着的那几张会白白晚一帧才亮起来。
     for (let i = 0; i < n; i++) {
-      canClickArr[i] = (game.board[i].blockedBy.length === 0);
-      shallow[i] = false;
+      const item = game.board[i];
+      const inSlot = (item.inSlot === 1 || item.inSlot === true);
+      inSlotById[item.id] = inSlot;
+      freeById[item.id] = (!inSlot && item.blockedBy.length === 0);
     }
 
-    /* B. 判断每张牌是「浅层」还是「牌背」。
-     * 规则（关键，别写反）：半透明的条件是【压着它的牌全都是能点的】；
-     * 只要有【一张】压制者不能点，它就是牌背 ——
-     * 哪怕同时还被能点的牌压着也算（这种情况在厚牌堆里很常见）。 */
+    // B. 判断每张牌是「浅层（快能点）」还是「牌背」
+    //    规则：压制者里【全都是能点的】才算浅层；
+    //    只要有一张压制者不能点（或者在卡槽里），它就是牌背。
+    const shallowById = Object.create(null);
     for (let i = 0; i < n; i++) {
-      const by = game.board[i].blockedBy;
+      const item = game.board[i];
+      const by = item.blockedBy;
       let allFree = (by.length > 0);
       for (let b = 0; b < by.length; b++) {
-        if (!canClickArr[by[b]]) { allFree = false; break; }   // 有不能点的 → 不是浅层
+        const bid = by[b];
+        if (!freeById[bid] || inSlotById[bid]) { allFree = false; break; }
       }
-      shallow[i] = allFree;
+      shallowById[item.id] = allFree;
     }
 
     // C. 刷到 DOM 上
@@ -2210,19 +2254,59 @@
       const el = game.dom.get(item.id);
       if (!el) continue;
 
-      const canClick = canClickArr[i];
-      const translucent = !canClick && shallow[i];    // ② 半透明
-      const deep = !canClick && !shallow[i];          // ③ 牌背
+      const canClick = freeById[item.id];
+      const translucent = !canClick && shallowById[item.id];   // ② 快能点了
+      const deep = !canClick && !shallowById[item.id];         // ③ 埋在下面
 
       el.classList.toggle('blocked', translucent);
       el.classList.toggle('deep-blocked', deep);
       el.setAttribute('aria-disabled', canClick ? 'false' : 'true');
+
+      /* 「快能点」那档用该物品的淡色块（JS 算出来写在内联样式上）。
+       * 其余两档要把内联背景清掉，否则换局面后颜色会赖着不走。 */
+      if (translucent) {
+        el.style.background = blockTint(item.color, 0.30);
+      } else {
+        el.style.background = '';
+      }
 
       el.title = canClick
         ? '可以点'
         : (translucent
           ? '被能点的牌压着，点掉上面那张就能轮到它'
           : '上面还压着好几层，暂时看不到图案');
+
+      /* 调试模式（?debug=tier）：在牌面左上角标出档位，方便肉眼核对张数。
+       * 绿=能点 黄=半透明 红=牌背。不开调试时这段完全不执行。 */
+      if (game.debugTier) {
+        const tag = canClick ? '0' : (translucent ? '1' : '2');
+        const color = canClick ? '#1f9d3a' : (translucent ? '#e8a600' : '#d0342c');
+        el.dataset.tier = tag;
+        el.style.setProperty('--tier-color', color);
+        el.classList.add('tier-marked');
+      }
+    }
+
+    /* 调试模式：把三档数量同时打到控制台和页面右上角的小面板上。
+     * 手机上不方便看控制台，所以页面上也显示一份 —— 直接读数字，不用数。 */
+    if (game.debugTier) {
+      let a = 0, b2 = 0, c = 0;
+      for (let i = 0; i < n; i++) {
+        const id = game.board[i].id;
+        if (freeById[id]) a++;
+        else if (shallowById[id]) b2++;
+        else c++;
+      }
+      const line = '能点 ' + a + ' ／ 半透明 ' + b2 + ' ／ 牌背 ' + c + ' ／ 共 ' + n;
+      console.log('[档位核对] ' + line);
+
+      let box = document.getElementById('tierPanel');
+      if (!box) {
+        box = document.createElement('div');
+        box.id = 'tierPanel';
+        document.body.appendChild(box);
+      }
+      box.textContent = line;
     }
   }
 
@@ -2689,6 +2773,16 @@
     } catch (e) {
       return false;          // 老浏览器不支持就跳过，不影响正常玩
     }
+    /* 调试模式：?debug=tier
+     * 在每张牌上标出它被判成哪一档，用来核对「半透明的张数」对不对。
+     * 标记方式：左上角一个色点 + 一个数字
+     *   绿 0 = 能点   黄 1 = 半透明   红 2 = 牌背
+     * 打开后控制台也会打印三档的准确数量。 */
+    if (params.get('debug') === 'tier') {
+      game.debugTier = true;
+      return false;               // 不跳转，照常进游戏
+    }
+
     if (params.get('test') !== 'win') return false;
 
     // 传了 rank 就把它当成本局名次，通关页会直接用，不去查后端
