@@ -11,10 +11,16 @@
 </head>
 <body>
 
-  <!-- 顶部只留一个图鉴按钮（关卡名/剩余张数/复活次数这些数字全部去掉，画面清爽优先） -->
+  <!-- 顶部一行三块：左班徽 / 中标题 / 右图鉴按钮（班徽和按钮做成同样大小，视觉对称） -->
   <div id="topBar">
-    <button type="button" id="codexBtn" class="hud-btn" title="西迁行囊图鉴">
-      图鉴 <span id="codexCount">0/10</span>
+    <!-- 班级班徽（放 assets/class-badge.jpg；想换成别的图改 src 即可） -->
+    <img id="classBadge" class="top-badge" src="assets/class-badge.jpg" alt="电气 2615 班徽" draggable="false">
+
+    <h1 id="gameTitle" class="top-title">西迁行囊</h1>
+
+    <button type="button" id="codexBtn" class="top-codex" title="西迁行囊图鉴">
+      <span class="codex-btn-label">图鉴</span>
+      <span class="codex-btn-num" id="codexCount">0/10</span>
     </button>
   </div>
 

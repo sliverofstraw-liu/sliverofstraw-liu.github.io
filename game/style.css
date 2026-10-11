@@ -59,16 +59,87 @@ body {
   overflow-y: auto;
 }
 
-/* ---------- 顶部：只放一个图鉴按钮（其余数字全部去掉，画面清爽优先） ---------- */
+/* ---------- 顶部一行：左班徽 / 中标题 / 右图鉴按钮 ----------
+ * 布局用「两侧固定宽度 + 中间自适应」：
+ *   班徽和按钮都是 44×44，所以 title 只要 text-align:center 就正好落在屏幕正中，
+ *   不会因为左右内容宽度不同而偏。
+ * ------------------------------------------------------------------------ */
 #topBar {
   flex: 0 0 auto;
   display: flex;
-  justify-content: flex-end;    /* 按钮靠右 */
-  /* 上面 26px 是【刻意留的顶部空白】：把「图鉴按钮 + 卡片区 + 下面的所有内容」
-     整体往下推一点，免得牌堆紧贴屏幕顶端。
-     这里用固定像素而不是 auto/1fr —— 固定值在任何视口高度下都一样，
-     才能保证手机浏览器和 QQ 内置浏览器的效果仍然一致。 */
-  padding: 26px 12px 2px;
+  align-items: center;
+  gap: 8px;
+  /* 上面 22px 是刻意留的顶部空白，把整块内容往下推一点，免得紧贴屏幕顶端 */
+  padding: 22px 10px 2px;
+}
+
+/* 班徽：和右边的图鉴按钮同尺寸，形成对称 */
+.top-badge {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  /* 班徽是蓝金配色，和页面的奶油底色不一个色系。
+     这里做两件轻处理，让它融进背景但不失去「徽章」的质感：
+       · 轻微降饱和 + 加一点点暖（sepia），让蓝不那么跳
+       · 加一圈极淡的暖色描边，把它和背景分开，免得糊在一起
+     想让它更鲜艳：把 saturate 调回 1、sepia 调回 0。 */
+  filter: saturate(0.85) sepia(0.12) brightness(0.99);
+  border: 1px solid rgba(140, 118, 86, 0.30);
+  box-shadow: 0 1px 4px rgba(90, 74, 51, 0.16);
+}
+
+.top-title {
+  flex: 1 1 auto;
+  margin: 0;
+  min-width: 0;
+  text-align: center;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.20em;
+  /* 用了 letter-spacing 后最后一个字右边会多出间距，补一个同等 text-indent 保持居中 */
+  text-indent: 0.20em;
+  color: #6b5b42;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 图鉴按钮：做成方形，尺寸和班徽完全一致 */
+.top-codex {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 0;
+  font-family: inherit;
+  border-radius: 12px;
+  color: #5a4a33;
+  background: #fdf8ee;
+  border: 1px solid rgba(140, 118, 86, 0.55);
+  box-shadow: 0 1px 3px rgba(90, 74, 51, 0.14);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.top-codex:active { transform: translateY(1px); }
+
+.top-codex .codex-btn-label {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.top-codex .codex-btn-num {
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1;
+  color: #8a7d69;
 }
 
 /* ---------- 主体 ---------- */
@@ -341,25 +412,6 @@ body {
  * 西迁主题相关：图鉴入口 / 知识点提示条 / 答题复活 / 图鉴 / 物品详情
  * ==========================================================================*/
 
-/* ---------- 顶部的「图鉴」小按钮 ---------- */
-.hud-btn {
-  margin-left: auto;              /* 推到最右边 */
-  flex: 0 0 auto;
-  min-height: 30px;
-  padding: 4px 10px;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  color: #5a4a33;
-  background: #fdf8ee;              /* 不透明，否则和米色背景糊在一起看不见 */
-  border: 1px solid rgba(140, 118, 86, 0.55);
-  box-shadow: 0 1px 3px rgba(90, 74, 51, 0.14);
-  border-radius: 999px;
-  cursor: pointer;
-  touch-action: manipulation;
-  white-space: nowrap;
-}
-.hud-btn:active { transform: translateY(1px); }
 
 /* ---------- 消牌知识点提示条（底部浮出，自动收起） ---------- */
 .tipbar {
@@ -616,7 +668,9 @@ body {
 
 /* ---------- 屏幕特别矮的情况（比如手机横屏）：把卡槽和文字行压缩，给牌堆让出高度 ---------- */
 @media (max-height: 640px) {
-  #topBar { padding: 4px 12px 0; }
+  #topBar { padding: 10px 10px 0; }
+  .top-badge, .top-codex { width: 38px; height: 38px; }
+  .top-title { font-size: 16px; letter-spacing: 0.14em; text-indent: 0.14em; }
   #slotsBar { padding: 3px 0; }
   #footer { padding: 4px 0 2px; }
   #subtitle { padding: 2px 0 4px; min-height: 24px; }
@@ -628,6 +682,12 @@ body {
 }
 
 /* ---------- 屏幕很窄：字号再收一点 ---------- */
+@media (max-width: 360px) {
+  .top-badge, .top-codex { width: 38px; height: 38px; }
+  .top-title { font-size: 16px; letter-spacing: 0.12em; text-indent: 0.12em; }
+  .top-codex .codex-btn-label { font-size: 12px; }
+}
+
 @media (max-width: 340px) {
   .btn { min-width: 118px; padding: 10px 16px; font-size: 15px; }
   #subtitle .subtitle-sub { font-size: 12.5px; }
