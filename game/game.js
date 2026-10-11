@@ -2111,7 +2111,7 @@
   /* 构建版本号 —— 用来判断浏览器加载的是不是最新代码。
    * 手机上缓存很顽固，出现「行为和预期不一致」时先看这个号。
    * 打开 ?debug=1 会把它显示在页面顶部。 */
-  const BUILD = '2026-10-11-tierfix';
+  const BUILD = '2026-10-11-colorfix';
 
   function findTileConfig(kindId) {
     for (let i = 0; i < TILES.length; i++) {
@@ -2267,13 +2267,24 @@
       el.classList.toggle('deep-blocked', deep);
       el.setAttribute('aria-disabled', canClick ? 'false' : 'true');
 
-      /* 「快能点」那档用该物品的淡色块（JS 算出来写在内联样式上）。
-       * 其余两档要把内联背景清掉，否则换局面后颜色会赖着不走。 */
-      if (translucent) {
-        el.style.background = blockTint(item.color, 0.30);
-      } else {
-        el.style.background = '';
+      /* ⚠️ 牌面颜色是写在【内联样式】上的（见 createTileNode 里的
+       * el.style.background = cfg.color），所以这里绝对不能写
+       *   el.style.background = ''
+       * 去「清空」—— 那会把底色一并抹掉，整副牌变白（这个坑踩过一次）。
+       *
+       * 取色一律通过 findTileConfig(item.kind) —— 和 createTileNode 用
+       * 的是同一个来源。不要读 item.color：牌堆里存的 item 不一定带
+       * color 字段，读它就会拿到 undefined，整副牌变灰。 */
+      const itemCfg = findTileConfig(item.kind);
+      const baseColor = (itemCfg && itemCfg.color) ? itemCfg.color : '#888';
+
+      if (canClick) {
+        el.style.background = baseColor;
+      } else if (translucent) {
+        el.style.background = blockTint(baseColor, 0.30);
       }
+      /* 牌背那一档不写内联：CSS 里 .tile.deep-blocked 带 !important，
+       * 无论内联是什么都会被盖成素色牌背。 */
 
       el.title = canClick
         ? '可以点'
