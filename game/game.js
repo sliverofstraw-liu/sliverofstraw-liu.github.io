@@ -2155,7 +2155,7 @@
   /* 构建版本号 —— 用来判断浏览器加载的是不是最新代码。
    * 手机上缓存很顽固，出现「行为和预期不一致」时先看这个号。
    * 打开 ?debug=1 会把它显示在页面顶部。 */
-  const BUILD = '2026-10-11-12';
+  const BUILD = '2026-10-11-13';
 
   function findTileConfig(kindId) {
     for (let i = 0; i < TILES.length; i++) {
