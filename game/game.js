@@ -2108,6 +2108,11 @@
     el.style.zIndex = String(10 + item.level * 100 + (item.z || 0));
   }
 
+  /* 构建版本号 —— 用来判断浏览器加载的是不是最新代码。
+   * 手机上缓存很顽固，出现「行为和预期不一致」时先看这个号。
+   * 打开 ?debug=1 会把它显示在页面顶部。 */
+  const BUILD = '2026-10-11-tierfix';
+
   function findTileConfig(kindId) {
     for (let i = 0; i < TILES.length; i++) {
       if (TILES[i].id === kindId) return TILES[i];
@@ -2778,8 +2783,15 @@
      * 标记方式：左上角一个色点 + 一个数字
      *   绿 0 = 能点   黄 1 = 半透明   红 2 = 牌背
      * 打开后控制台也会打印三档的准确数量。 */
-    if (params.get('debug') === 'tier') {
-      game.debugTier = true;
+    if (params.get('debug') === 'tier' || params.get('debug') === '1') {
+      game.debugTier = (params.get('debug') === 'tier');
+      /* 把构建号显示在页面顶部 —— 一眼就能确认「我加载的是哪一版」。
+       * 手机上缓存顽固，排查问题时这个号能直接排除掉旧缓存的可能。 */
+      const stamp = document.createElement('div');
+      stamp.id = 'buildStamp';
+      stamp.textContent = '构建 ' + BUILD;
+      document.body.appendChild(stamp);
+      console.log('[西迁行囊] 构建版本 = ' + BUILD);
       return false;               // 不跳转，照常进游戏
     }
 

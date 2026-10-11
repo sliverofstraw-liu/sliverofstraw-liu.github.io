@@ -767,3 +767,18 @@ body {
   min-height: 40px;
   font-size: 14px;
 }
+
+/* ---------- 构建号标记（只在 ?debug=1 时出现） ---------- */
+#buildStamp {
+  position: fixed;
+  top: 2px;
+  right: 6px;
+  z-index: 9999;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(20, 15, 8, 0.85);
+  border-radius: 6px;
+  pointer-events: none;
+}
