@@ -1804,6 +1804,28 @@
     return box;
   }
 
+  /* 取一张牌的颜色 —— 消牌时的粒子要用它上色。
+   * 统一走 findTileConfig(item.kind)，和画牌面用的是同一个来源。 */
+  function colorOfTile(id) {
+    const it = findBoardItem(id);
+    const cfg = it ? findTileConfig(it.kind) : null;
+    return (cfg && cfg.color) ? cfg.color : '#e8d5a8';
+  }
+
+  /* 卡槽满了但还能凑成三张 → 说明这一手没消掉，是"落进卡槽"。
+   * 这时候给一声低一点的"咚"，和"消掉"的清脆声区分开。
+   * （消掉的话 resolveMatches 会立刻把三张移除，就不会满足这个条件） */
+  function slotSoundIfNoClear() {
+    try {
+      if (game.slots.length >= game.level.slots && hasAnyTriple(game.slots)) {
+        if (window.XXYFX) {
+          const s = window.XXYFX.sound();
+          if (s) s.slot();
+        }
+      }
+    } catch (e) { /* 忽略 */ }
+  }
+
   function unlockedCount() {
     let n = 0;
     for (let i = 0; i < TILES.length; i++) if (game.knowledge[TILES[i].id]) n++;
@@ -2123,7 +2145,7 @@
   /* 构建版本号 —— 用来判断浏览器加载的是不是最新代码。
    * 手机上缓存很顽固，出现「行为和预期不一致」时先看这个号。
    * 打开 ?debug=1 会把它显示在页面顶部。 */
-  const BUILD = '2026-10-11-8';
+  const BUILD = '2026-10-11-9';
 
   function findTileConfig(kindId) {
     for (let i = 0; i < TILES.length; i++) {
@@ -2172,6 +2194,12 @@
       stageEl.appendChild(el);
       placeNode(el, item, false);
     }
+
+    /* 开局落位动画：牌按顺序从上层往下逐张落下。
+     * 纯观感，所以整段包了 try —— 动效出问题绝不能影响能不能玩。 */
+    try {
+      if (window.XXYFX) window.XXYFX.playDrop();
+    } catch (e) { /* 忽略 */ }
   }
 
   /* 把物品本色算成「淡色块」用的颜色。
@@ -2407,6 +2435,15 @@
     if (item.blockedBy.length > 0) return;           // ④ 同上，以数据为准，双保险
     // ⑤ 能走到这里，说明没有任何牌压住它 → 可以点
 
+    /* 点得动才有声音：放在这里而不是 useTile 里 ——
+     * 被压住时上面早就 return 了，不会响，手感才对。 */
+    try {
+      if (window.XXYFX) {
+        const s = window.XXYFX.sound();
+        if (s) s.click();
+      }
+    } catch (e) { /* 忽略 */ }
+
     useTile(item);
   }
 
@@ -2434,6 +2471,7 @@
 
     // 5) 结算：凑齐 3 张一样的就消掉
     resolveMatches();
+    slotSoundIfNoClear();     // 这一手没消掉 → 给一声"落进卡槽"的低音
     updateSlots();
     updateHud();
 
@@ -2471,6 +2509,36 @@
 
         // 从卡槽里删掉，剩下的牌自动往前补位
         game.slots = game.slots.filter(function (t) { return !killIds[t.id]; });
+
+        /* ---- 消除反馈（纯观感）----
+         * 必须在删 DOM【之前】取坐标，删完就拿不到了。
+         * 连消计数 game.comboCount：一次点击里连续消掉多组时累加，
+         * 音效音高随之升高（越连越爽），≥2 时飘一句「连消 ×N！」。 */
+        try {
+          if (window.XXYFX) {
+            game.comboCount = (game.comboCount || 0) + 1;
+            for (const idStr in killIds) {
+              const nd = game.dom.get(Number(idStr));
+              if (!nd) continue;
+              const r = nd.getBoundingClientRect();
+              window.XXYFX.blastNode(nd);
+              window.XXYFX.burstAt(
+                r.left + r.width / 2,
+                r.top + r.height / 2,
+                colorOfTile(Number(idStr))
+              );
+            }
+            const s = window.XXYFX.sound();
+            if (s) s.clear(game.comboCount - 1);
+            if (game.comboCount >= 2) {
+              window.XXYFX.comboPop('连消 ×' + game.comboCount + '！',
+                window.innerWidth / 2, window.innerHeight * 0.42);
+            }
+            // 消掉的组数 → 小火车往前走一点
+            game.groupsCleared = (game.groupsCleared || 0) + 1;
+            window.XXYFX.setJourney(game.groupsCleared, game.level.total / 3);
+          }
+        } catch (e) { /* 忽略 */ }
 
         // 删掉对应的 DOM（带一点淡出）
         for (const idStr in killIds) {
@@ -2636,9 +2704,34 @@
         if (window.XXYStats) window.XXYStats.flush();
       } catch (e) { /* 忽略 */ }
 
-      location.href = 'win.html';
+      /* 通关反馈：金色涟漪 + 上行音阶 + 汽笛，并把小火车推到「西安」。
+       * 跳转前留 1.4 秒让这套反馈播完 —— 否则玩家什么都听不到、
+       * 也看不到小火车抵达，通关那一下的爽感就白丢了。 */
+      let delay = 0;
+      try {
+        if (window.XXYFX) {
+          delay = 1400;
+          window.XXYFX.winFlash();
+          window.XXYFX.setJourney(1, 1);
+          const sw = window.XXYFX.sound();
+          if (sw) sw.win();
+        }
+      } catch (e) { delay = 0; }
+
+      /* 这里用 location.replace 而不是 href：
+       * 不改写浏览历史，玩家按返回能直接回到上一页。 */
+      setTimeout(function () { location.href = 'win.html'; }, delay);
       return;
     }
+
+    /* 失败：屏幕抖一下 + 一记低沉音，给"没接住"的手感 */
+    try {
+      if (window.XXYFX) {
+        window.XXYFX.shake();
+        const sl = window.XXYFX.sound();
+        if (sl) sl.lose();
+      }
+    } catch (e) { /* 忽略 */ }
 
     // 失败：仍然用原来的弹窗
     // 结束/失败都要把答题区收起来，免得下次弹窗还挂着上一题的残留
@@ -2699,6 +2792,13 @@
     // 4) 清理界面
     game.slots = [];
     game.over = false;
+    game.comboCount = 0;
+    game.groupsCleared = 0;
+
+    /* 旅程条回到「上海」起点（把"收行李"变成"走完西迁路"） */
+    try {
+      if (window.XXYFX) window.XXYFX.resetJourney();
+    } catch (e) { /* 忽略 */ }
     /* 图鉴解锁记录是【跨局保留】的：从本地读回来（第一次进来时读一次就够），
      * 只有「本局弹过哪些提示」要清空 —— 这样重开一局时，
      * 新解锁的物品还能弹提示，而早就知道的不会再来打扰。 */
@@ -2845,6 +2945,13 @@
       window.XXYStats.init();
       track('open');
     }
+
+    /* 氛围与动效初始化（飘尘、音效开关按钮、音频解锁监听、旅程条归位）。
+     * fx.js 在 game.js 之后加载，所以这里运行时 window.XXYFX 一定已经就绪。
+     * 整段包 try：动效是锦上添花，出问题也绝不能让游戏进不去。 */
+    try {
+      if (window.XXYFX) window.XXYFX.init();
+    } catch (e) { /* 忽略 */ }
 
     // 先量一次真实视口高度（并连量几帧取最大值），再据此算格子大小
     sampleViewportHeight();

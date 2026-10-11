@@ -7,16 +7,57 @@
   <meta name="theme-color" content="#f3ece2">
   <title>西迁行囊 · 三消小游戏</title>
   <!-- 相对路径引用，所以双击 index.html（file://）和放到静态托管上都能用 -->
-  <link rel="stylesheet" href="style.css?v=2026-10-11-8">
+  <link rel="stylesheet" href="style.css?v=2026-10-11-9">
 </head>
 <body>
 
-  <!-- 顶部一行三块：左班徽 / 中标题 / 右图鉴按钮（班徽和按钮做成同样大小，视觉对称） -->
+  <!-- ============ 氛围层：纯装饰，不参与任何交互 ============
+       纸纹 + 暗角（CSS 伪元素）+ 飘尘（JS 生成）+ 火车剪影（远景慢速驶过）
+       全部 z-index 在内容之下，pointer-events: none -->
+  <div id="atmos" aria-hidden="true">
+    <!-- 火车剪影：一列老式蒸汽火车，极慢地从左驶到右，贴合西迁主题 -->
+    <div id="trainSilhouette">
+      <svg viewBox="0 0 220 70" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- 车厢 -->
+        <rect x="6" y="26" width="52" height="26" rx="3" fill="#5a4a33"/>
+        <rect x="12" y="32" width="12" height="11" rx="1.5" fill="#f3ece2"/>
+        <rect x="28" y="32" width="12" height="11" rx="1.5" fill="#f3ece2"/>
+        <rect x="44" y="32" width="8" height="11" rx="1.5" fill="#f3ece2"/>
+        <!-- 第二车厢 -->
+        <rect x="62" y="24" width="54" height="28" rx="3" fill="#5a4a33"/>
+        <rect x="68" y="30" width="13" height="12" rx="1.5" fill="#f3ece2"/>
+        <rect x="85" y="30" width="13" height="12" rx="1.5" fill="#f3ece2"/>
+        <rect x="102" y="30" width="9" height="12" rx="1.5" fill="#f3ece2"/>
+        <!-- 车头 -->
+        <rect x="120" y="28" width="34" height="24" rx="3" fill="#4a3d2a"/>
+        <rect x="146" y="34" width="12" height="12" rx="1.5" fill="#f3ece2"/>
+        <!-- 烟囱与烟 -->
+        <rect x="126" y="14" width="9" height="15" rx="2" fill="#4a3d2a"/>
+        <circle cx="131" cy="9" r="5" fill="#5a4a33" opacity="0.55"/>
+        <circle cx="139" cy="4" r="4" fill="#5a4a33" opacity="0.4"/>
+        <circle cx="147" cy="1" r="3" fill="#5a4a33" opacity="0.28"/>
+        <!-- 底盘 -->
+        <rect x="4" y="52" width="152" height="5" rx="2" fill="#4a3d2a"/>
+        <!-- 轮子 -->
+        <circle cx="22" cy="60" r="6" fill="#4a3d2a"/>
+        <circle cx="48" cy="60" r="6" fill="#4a3d2a"/>
+        <circle cx="80" cy="60" r="6.5" fill="#4a3d2a"/>
+        <circle cx="108" cy="60" r="6.5" fill="#4a3d2a"/>
+        <circle cx="138" cy="60" r="7" fill="#4a3d2a"/>
+        <circle cx="156" cy="60" r="5" fill="#4a3d2a"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- 顶部一行：左班徽 / 中标题 / 右（小喇叭 + 图鉴按钮） -->
   <div id="topBar">
     <!-- 班级班徽（放 assets/class-badge.jpg；想换成别的图改 src 即可） -->
     <img id="classBadge" class="top-badge" src="assets/class-badge.jpg" alt="电气 2615 班徽" draggable="false">
 
     <h1 id="gameTitle" class="top-title">西迁行囊</h1>
+
+    <!-- 音效开关：图标由 JS 按状态切换（🔊 / 🔇），状态存在 localStorage -->
+    <button type="button" id="soundBtn" title="音效开关" aria-label="音效开关">&#128266;</button>
 
     <button type="button" id="codexBtn" class="top-codex" title="西迁行囊图鉴">
       <span class="codex-btn-label">图鉴</span>
@@ -32,6 +73,36 @@
     <!-- 下方卡槽：按关卡配置的格子数（默认 7），按点击顺序从左往右排 -->
     <div id="slotsBar">
       <div id="slots" aria-label="卡槽"></div>
+    </div>
+
+    <!-- ============ 旅程进度条：上海 → 西安 ============
+         每消掉一组牌，小火车往前挪一点；通关时鸣笛抵达。
+         把「收集行李」变成「走完西迁路」，是主题沉浸感的主要来源。
+         进度由 game.js 更新，这里只给结构。 -->
+    <div id="journey" aria-label="西迁路程">
+      <span class="journey-stop from">上海</span>
+      <span class="journey-stop to">西安</span>
+      <div id="journeyTrack"></div>
+      <div id="journeyFill"></div>
+      <div id="journeyTrain" aria-hidden="true">
+        <!-- 一颗小火车头图标 -->
+        <svg viewBox="0 0 44 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="11" width="17" height="12" rx="2" fill="#5a4a33"/>
+          <rect x="5" y="14" width="5" height="5" rx="1" fill="#f3ece2"/>
+          <rect x="12" y="14" width="5" height="5" rx="1" fill="#f3ece2"/>
+          <rect x="21" y="9" width="16" height="14" rx="2" fill="#4a3d2a"/>
+          <rect x="25" y="12" width="6" height="6" rx="1" fill="#f3ece2"/>
+          <rect x="22" y="3" width="4" height="6" rx="1" fill="#4a3d2a"/>
+          <circle cx="24" cy="2" r="2.4" fill="#5a4a33" opacity="0.6"/>
+          <rect x="1" y="22" width="37" height="2.6" rx="1.2" fill="#4a3d2a"/>
+          <circle cx="7" cy="26" r="3.2" fill="#4a3d2a"/>
+          <circle cx="17" cy="26" r="3.2" fill="#4a3d2a"/>
+          <circle cx="29" cy="26" r="3.6" fill="#4a3d2a"/>
+          <circle cx="37" cy="26" r="2.6" fill="#4a3d2a"/>
+          <!-- 车头冒的金色小火星，表示在往前走 -->
+          <circle cx="26" cy="1" r="1.6" fill="#e8b23a" opacity="0.85"/>
+        </svg>
+      </div>
     </div>
 
     <!-- 牌堆和按钮之间的空隙：放一句主题小字 -->
@@ -110,9 +181,12 @@
     </div>
   </div>
 
-  <script src="tile-story.js?v=2026-10-11-8"></script>
-  <script src="stats-config.js?v=2026-10-11-8"></script>
-  <script src="stats.js?v=2026-10-11-8"></script>
-  <script src="game.js?v=2026-10-11-8"></script>
+  <script src="tile-story.js?v=2026-10-11-9"></script>
+  <script src="stats-config.js?v=2026-10-11-9"></script>
+  <script src="stats.js?v=2026-10-11-9"></script>
+  <script src="sfx.js?v=2026-10-11-9"></script>
+  <script src="game.js?v=2026-10-11-9"></script>
+  <!-- fx.js 放最后：它要在 game.js 定义完、页面元素都在之后再挂动效 -->
+  <script src="fx.js?v=2026-10-11-9"></script>
 </body>
 </html>

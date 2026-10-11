@@ -782,3 +782,302 @@ body {
   border-radius: 6px;
   pointer-events: none;
 }
+
+
+/* ============================================================================
+ * 氛围与动效（视觉沉浸感）
+ * ----------------------------------------------------------------------------
+ * 这一整块只做「好看」，不参与任何游戏逻辑判断。
+ * 全部用 CSS 实现，零素材、零依赖，file:// 下也能跑。
+ * 注意：牌堆的层级/遮挡判定和这里无关，改这里不会影响可玩性。
+ * ==========================================================================*/
+
+/* ---------- ① 背景：纸纹 + 暗角 + 飘尘 + 火车剪影 ---------- */
+/* 飘尘层和火车层都放在最底下（z-index 负值），不参与交互 */
+#atmos {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* 纸纹：用内联 SVG 的噪点做纸张颗粒感（零素材） */
+#atmos::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+/* 暗角：四角压暗，视线自然集中到牌堆 */
+#atmos::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 92% 78% at 50% 44%,
+    rgba(120, 100, 70, 0) 0%,
+    rgba(120, 100, 70, 0) 52%,
+    rgba(96, 78, 52, 0.10) 78%,
+    rgba(80, 64, 42, 0.20) 100%);
+}
+
+/* 飘尘/光斑：十几个极淡的光点缓慢上浮 */
+.dust {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 246, 222, 0.95) 0%, rgba(255, 246, 222, 0) 70%);
+  animation-name: dustFloat;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes dustFloat {
+  from { transform: translateY(0) scale(1); opacity: 0; }
+  12%  { opacity: 0.75; }
+  80%  { opacity: 0.45; }
+  to   { transform: translateY(-46vh) scale(1.35); opacity: 0; }
+}
+
+/* 火车剪影：远景，极慢地驶过（一轮约 52 秒），贴合西迁主题 */
+#trainSilhouette {
+  position: absolute;
+  bottom: 15%;
+  left: -32%;
+  width: 30%;
+  opacity: 0.10;
+  animation: trainGlide 52s linear infinite;
+}
+#trainSilhouette svg { display: block; width: 100%; height: auto; }
+@keyframes trainGlide {
+  from { transform: translateX(0); }
+  to   { transform: translateX(460%); }
+}
+
+/* ---------- ② 牌堆「垫子」：让牌像落在桌面上 ---------- */
+#stage {
+  background:
+    radial-gradient(ellipse 78% 72% at 50% 42%,
+      rgba(255, 252, 244, 0.55) 0%,
+      rgba(240, 231, 214, 0.35) 62%,
+      rgba(226, 212, 188, 0.28) 100%);
+  border-radius: 18px;
+  box-shadow:
+    inset 0 2px 10px rgba(120, 100, 70, 0.10),
+    inset 0 0 0 1px rgba(150, 128, 96, 0.16),
+    0 6px 18px rgba(120, 100, 70, 0.10);
+}
+
+/* ---------- ③ 开局落位动画：牌从上层往下逐张落下 ---------- */
+/* JS 给每张牌设了 --drop-delay / --drop-from，这里只负责动画 */
+@keyframes tileDrop {
+  from {
+    transform: translateY(var(--drop-from, -26px)) scale(0.82);
+    opacity: 0;
+  }
+  60% { opacity: 1; }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+#stage.dropping .tile {
+  animation: tileDrop 0.42s cubic-bezier(0.22, 1.1, 0.36, 1) backwards;
+  animation-delay: var(--drop-delay, 0s);
+}
+/* 静止态不能被动画残留的 transform 影响布局 */
+#stage:not(.dropping) .tile { transform: none; }
+
+/* ---------- ④ 按压反馈 ---------- */
+.tile.on-board:active {
+  transform: scale(0.94);
+  filter: brightness(0.95);
+}
+/* 能点的牌轻微「浮起」，暗示可以点（只作用于能点的那一档） */
+.tile.on-board:not(.blocked):not(.deep-blocked) {
+  box-shadow: 0 0 0 1px rgba(60, 45, 25, 0.16), 0 3px 7px rgba(60, 45, 25, 0.24);
+}
+
+/* ---------- ⑤ 消除粒子 ---------- */
+.tile-particle {
+  position: fixed;
+  z-index: 60;
+  border-radius: 2px;
+  pointer-events: none;
+  animation: particleFly 0.62s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+@keyframes particleFly {
+  from {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--px), var(--py)) scale(0.25) rotate(var(--prot));
+    opacity: 0;
+  }
+}
+
+/* 消三张时牌面本身的「闪一下」 */
+.tile.clearing.blast { animation: tileBlast 0.24s ease-out forwards; }
+@keyframes tileBlast {
+  0%   { transform: scale(1.16); filter: brightness(1.35); }
+  100% { transform: scale(0.6); filter: brightness(1.1); opacity: 0; }
+}
+
+/* ---------- ⑥ 失败震屏 ---------- */
+@keyframes screenShake {
+  0%, 100% { transform: translate(0, 0); }
+  15% { transform: translate(-7px, 3px) rotate(-0.35deg); }
+  30% { transform: translate(6px, -4px) rotate(0.3deg); }
+  45% { transform: translate(-5px, 2px); }
+  60% { transform: translate(4px, -2px); }
+  80% { transform: translate(-2px, 1px); }
+}
+body.shaking #app { animation: screenShake 0.46s ease-out; }
+
+/* 通关时的金色涟漪 */
+.win-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 46%,
+    rgba(255, 232, 170, 0.85) 0%,
+    rgba(255, 214, 120, 0.45) 26%,
+    rgba(255, 200, 90, 0) 62%);
+  animation: winFlash 0.8s ease-out forwards;
+}
+@keyframes winFlash {
+  from { opacity: 0; transform: scale(0.4); }
+  35%  { opacity: 1; }
+  to   { opacity: 0; transform: scale(1.5); }
+}
+
+/* ---------- ⑦ 连消飘字 ---------- */
+.combo-pop {
+  position: fixed;
+  z-index: 80;
+  pointer-events: none;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #f6d98a;
+  text-shadow: 0 2px 8px rgba(90, 60, 10, 0.55), 0 0 18px rgba(255, 210, 120, 0.55);
+  animation: comboPop 0.85s ease-out forwards;
+}
+@keyframes comboPop {
+  0%   { transform: translate(-50%, 0) scale(0.7); opacity: 0; }
+  22%  { transform: translate(-50%, -14px) scale(1.12); opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translate(-50%, -46px) scale(1); opacity: 0; }
+}
+
+/* ---------- ⑧ 旅程进度条：上海 → 西安 ---------- */
+#journey {
+  flex: 0 0 auto;
+  /* 必须 align-self: stretch —— #app 是 align-items:center，
+     不加这句它就会按内容宽度收缩，两端的「上海/西安」会挤到中间重叠。 */
+  align-self: stretch;
+  position: relative;
+  margin: 8px 14px 0;
+  height: 30px;
+}
+/* 轨道：两端各留出站名的宽度，免得车头/标签压到字上 */
+#journeyTrack {
+  position: absolute;
+  left: 42px;
+  right: 42px;
+  top: 15px;
+  height: 3px;
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(140, 118, 86, 0.34) 0 7px,
+      rgba(140, 118, 86, 0.10) 7px 14px);
+}
+/* 已走过的部分 */
+#journeyFill {
+  position: absolute;
+  left: 42px;
+  top: 15px;
+  height: 3px;
+  width: 0%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #c9a227, #b5563f);
+  transition: width 0.45s cubic-bezier(0.3, 0.9, 0.3, 1);
+}
+/* 两端站名 */
+.journey-stop {
+  position: absolute;
+  top: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #7a6a52;
+  white-space: nowrap;
+}
+.journey-stop.from { left: 0; }
+.journey-stop.to   { right: 0; }
+
+/* 小火车：靠 left% 移动，配合 journeyFill 的过渡时长 */
+#journeyTrain {
+  position: absolute;
+  top: 6px;
+  left: 0%;
+  width: 22px;
+  height: 15px;
+  transform: translateX(-50%);
+  transition: left 0.45s cubic-bezier(0.3, 0.9, 0.3, 1);
+  filter: drop-shadow(0 1px 2px rgba(90, 70, 40, 0.35));
+}
+#journeyTrain svg { display: block; width: 100%; height: 100%; }
+/* 通关时小火车冒一下金气 */
+#journey.arrived #journeyTrain { animation: trainArrive 0.9s ease-out; }
+@keyframes trainArrive {
+  0%   { transform: translateX(-50%) scale(1); }
+  40%  { transform: translateX(-50%) scale(1.35); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
+/* ---------- ⑨ 小喇叭按钮（右上角，在图鉴按钮左边） ---------- */
+#soundBtn {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1;
+  color: #5a4a33;
+  background: #fdf8ee;
+  border: 1px solid rgba(140, 118, 86, 0.55);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(90, 74, 51, 0.14);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#soundBtn:active { transform: translateY(1px); }
+#soundBtn.muted { color: #a89c88; }
+
+/* ---------- ⑩ 尊重「减少动态效果」 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  #atmos { display: none; }
+  #stage.dropping .tile { animation: none; }
+  .tile-particle { display: none; }
+  .dust { display: none; }
+  #trainSilhouette { display: none; }
+  body.shaking #app { animation: none; }
+  .win-flash { display: none; }
+  .combo-pop { animation: none; opacity: 0; }
+}
+
+/* 矮屏时把旅程条压薄一点，别挤掉牌堆空间 */
+@media (max-height: 700px) {
+  #journey { height: 24px; margin-top: 4px; }
+  #journeyTrack, #journeyFill { top: 13px; }
+  #journeyTrain { top: 5px; width: 19px; height: 13px; }
+  .journey-stop { font-size: 10px; }
+}
