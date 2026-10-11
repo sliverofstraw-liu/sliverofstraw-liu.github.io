@@ -252,8 +252,8 @@ body {
 /* 第一档：只被 1 张牌压住 → 半透明
    还看得清是什么图案，玩家能提前规划；但明显暗下去，一眼知道现在点不了。 */
 .tile.blocked {
-  opacity: 0.42;
-  filter: grayscale(0.45) brightness(0.9);
+  opacity: 0.82;
+  filter: grayscale(0.15) brightness(0.97);
   box-shadow: none;
   cursor: not-allowed;
   pointer-events: none;

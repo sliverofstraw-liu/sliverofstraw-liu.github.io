@@ -2281,7 +2281,7 @@
       if (canClick) {
         el.style.background = baseColor;
       } else if (translucent) {
-        el.style.background = blockTint(baseColor, 0.30);
+        el.style.background = blockTint(baseColor, 0.55);
       }
       /* 牌背那一档不写内联：CSS 里 .tile.deep-blocked 带 !important，
        * 无论内联是什么都会被盖成素色牌背。 */
