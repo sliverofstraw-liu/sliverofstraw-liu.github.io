@@ -1,10 +1,10 @@
 
 /* ============================================================================
- * 通关页样式
+ * 通关页样式（精简版）
  * ----------------------------------------------------------------------------
- * 结构：背景滚动名言（.quote-stage）+ 前景成绩（.win-main）
- * 名言用纯 CSS 动画滚动：把内容复制两份，从 0 平移到 -50%，
- * 因为两份完全一样，滚到一半时视觉上无接缝，形成无缝循环。
+ * 页面只有三块：名次框、西迁精神十六字、「再走一次」按钮。
+ * 背景是滚动名言，用纯 CSS 动画驱动：内容复制两份、从 0 平移到 -50%，
+ * 两份完全一样，所以滚到一半时视觉上无接缝，形成无缝循环。
  * ==========================================================================*/
 
 .win-body {
@@ -81,17 +81,19 @@
   inset: 0;
   z-index: 1;
   pointer-events: none;
+  /* 中间压得厚一点：前景那几行字要能看清；
+     上下两头留淡一些，让滚动的名言露出来当氛围。 */
   background:
-    radial-gradient(ellipse 78% 58% at 50% 44%,
-      rgba(34, 27, 18, 0.94) 0%,
-      rgba(34, 27, 18, 0.86) 42%,
-      rgba(34, 27, 18, 0.52) 70%,
-      rgba(34, 27, 18, 0.30) 100%),
+    radial-gradient(ellipse 84% 50% at 50% 46%,
+      rgba(34, 27, 18, 0.98) 0%,
+      rgba(34, 27, 18, 0.96) 40%,
+      rgba(34, 27, 18, 0.80) 68%,
+      rgba(34, 27, 18, 0.55) 100%),
     linear-gradient(180deg,
-      rgba(34, 27, 18, 0.72) 0%,
-      rgba(34, 27, 18, 0.30) 22%,
-      rgba(34, 27, 18, 0.30) 78%,
-      rgba(34, 27, 18, 0.78) 100%);
+      rgba(34, 27, 18, 0.62) 0%,
+      rgba(34, 27, 18, 0.55) 18%,
+      rgba(34, 27, 18, 0.55) 82%,
+      rgba(34, 27, 18, 0.72) 100%);
 }
 
 /* ---------- 前景：成绩 ---------- */
@@ -109,22 +111,6 @@
   width: 100%;
   max-width: 380px;
   text-align: center;
-}
-
-.win-kicker {
-  margin: 0 0 6px;
-  font-size: 13px;
-  letter-spacing: 0.22em;
-  color: #c9a862;
-}
-
-.win-title {
-  margin: 0 0 22px;
-  font-size: clamp(24px, 7.4vw, 32px);
-  font-weight: 700;
-  letter-spacing: 0.10em;
-  color: #fbf6ea;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
 }
 
 /* ---------- 名次 ---------- */
@@ -164,42 +150,7 @@
   color: rgba(240, 214, 154, 0.85);
 }
 
-.rank-sub {
-  margin: 10px 0 0;
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  color: rgba(216, 198, 168, 0.62);
-}
-
 /* ---------- 本局成绩 ---------- */
-.win-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 18px;
-}
-
-.win-stat {
-  padding: 11px 6px;
-  border-radius: 11px;
-  background: rgba(255, 250, 240, 0.06);
-  border: 1px solid rgba(216, 186, 130, 0.20);
-}
-
-.win-stat .ws-k {
-  display: block;
-  font-size: 11.5px;
-  letter-spacing: 0.12em;
-  color: rgba(216, 198, 168, 0.66);
-  margin-bottom: 5px;
-}
-
-.win-stat .ws-v {
-  display: block;
-  font-size: 15px;
-  font-weight: 700;
-  color: #f6f0e4;
-}
 
 /* ---------- 西迁精神十六字 ---------- */
 .spirit {
@@ -228,31 +179,11 @@
   font-size: 16px;
 }
 
-.win-ghost {
-  background: rgba(255, 250, 240, 0.08);
-  border: 1px solid rgba(216, 186, 130, 0.38);
-  color: #f0e6d2;
-  box-shadow: none;
-}
-
-.win-ghost:active {
-  background: rgba(255, 250, 240, 0.14);
-}
-
-.win-foot {
-  margin: 0;
-  font-size: 11.5px;
-  letter-spacing: 0.08em;
-  color: rgba(216, 198, 168, 0.48);
-}
-
 /* ---------- 矮屏：压缩间距，保证一屏放得下 ---------- */
 @media (max-height: 700px) {
-  .win-title { margin-bottom: 14px; font-size: 22px; }
   .rank-box { padding: 14px 12px 13px; margin-bottom: 12px; }
   .rank-num { margin: 5px 0; }
   .rank-num #rankNum { font-size: 42px; }
-  .win-stats { margin-bottom: 12px; }
   .spirit { margin-bottom: 14px; gap: 4px 12px; font-size: 12px; }
   .quote-item { margin-bottom: 34px; }
 }
