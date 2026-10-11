@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#2b2318">
+  <title>通关 · 西迁行囊</title>
+  <link rel="stylesheet" href="win.css">
+</head>
+<body class="win-body">
+
+  <!-- ============ 背景：滚动名言（纯 CSS 动画，不用 JS） ============ -->
+  <div id="quoteStage" class="quote-stage" aria-hidden="true">
+    <div id="quoteTrack" class="quote-track"></div>
+  </div>
+  <div class="quote-veil"></div>
+
+  <!-- ============ 前景：成绩 ============ -->
+  <main class="win-main">
+    <div class="win-inner">
+
+      <p class="win-kicker" id="winKicker">行囊收好了</p>
+      <h1 class="win-title">你已抵达西安</h1>
+
+      <!-- 名次 -->
+      <div class="rank-box">
+        <p class="rank-label">你是第</p>
+        <p class="rank-num"><span id="rankNum">—</span><span class="rank-unit">位</span></p>
+        <p class="rank-label">把行囊收好、走完这条路的人</p>
+        <p class="rank-sub" id="rankSub">正在读取…</p>
+      </div>
+
+      <!-- 本局成绩 -->
+      <div class="win-stats">
+        <div class="win-stat">
+          <span class="ws-k">图鉴</span>
+          <span class="ws-v" id="stCodex">—</span>
+        </div>
+        <div class="win-stat">
+          <span class="ws-k">复活</span>
+          <span class="ws-v" id="stRevive">—</span>
+        </div>
+        <div class="win-stat">
+          <span class="ws-k">难度</span>
+          <span class="ws-v" id="stMode">—</span>
+        </div>
+      </div>
+
+      <!-- 西迁精神：十六字 -->
+      <div class="spirit">
+        <span>胸怀大局</span><span>无私奉献</span>
+        <span>弘扬传统</span><span>艰苦创业</span>
+      </div>
+
+      <div class="win-actions">
+        <button type="button" id="againBtn" class="btn btn-primary">再走一次</button>
+        <button type="button" id="codexBtn2" class="btn win-ghost">看看图鉴</button>
+      </div>
+
+      <p class="win-foot" id="winFoot">1956 年 9 月，首批迁校师生乘火车抵达西安</p>
+    </div>
+  </main>
+
+  <!-- 图鉴弹窗（复用主游戏的样式） -->
+  <div id="codexModal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-card codex-card">
+      <button type="button" id="codexCloseBtn" class="modal-close" aria-label="关闭图鉴">×</button>
+      <h2>西迁行囊图鉴</h2>
+      <p class="codex-sub" id="codexSub"></p>
+      <div id="codexGrid" class="codex-grid"></div>
+    </div>
+  </div>
+
+  <div id="detailModal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-card detail-card">
+      <button type="button" id="detailCloseBtn" class="modal-close" aria-label="关闭">×</button>
+      <div id="detailPic" class="detail-pic"></div>
+      <h2 id="detailTitle">物品</h2>
+      <p id="detailKnowledge" class="detail-knowledge"></p>
+      <p id="detailBody" class="detail-body"></p>
+    </div>
+  </div>
+
+  <script src="stats-config.js"></script>
+  <script src="win-quotes.js"></script>
+  <script src="tile-story.js"></script>
+  <script src="win-codex.js"></script>
+  <script src="win.js"></script>
+</body>
+</html>

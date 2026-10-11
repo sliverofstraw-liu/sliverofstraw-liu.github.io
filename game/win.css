@@ -1,0 +1,264 @@
+
+/* ============================================================================
+ * 通关页样式
+ * ----------------------------------------------------------------------------
+ * 结构：背景滚动名言（.quote-stage）+ 前景成绩（.win-main）
+ * 名言用纯 CSS 动画滚动：把内容复制两份，从 0 平移到 -50%，
+ * 因为两份完全一样，滚到一半时视觉上无接缝，形成无缝循环。
+ * ==========================================================================*/
+
+.win-body {
+  background: #221b12;
+  color: #f6f0e4;
+  min-height: 100vh;
+  overflow-x: hidden;
+  /* 这一页要铺满，所以不用主游戏那套弹性的 body 布局 */
+  display: block;
+  padding: 0;
+}
+
+/* ---------- 背景：滚动名言 ---------- */
+.quote-stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.quote-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  /* 首尾各留出一点，避免第一条名言一上来就贴着屏幕顶边 */
+  padding: 14px 0 0;
+  animation-name: quoteScroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+/* 无缝循环的原理：
+ * JS 把名言池【复制两份】首尾相接，轨道高度 = 2 × 一份内容。
+ * 动画从 0 平移到 -50%（正好是一份内容的高度），
+ * 此时画面和第二份的起点完全重合 → 视觉上无接缝。
+ * 注意：不能给轨道加 100vh 之类的 padding 去「垫高度」，
+ * 否则起始位置会把名言推出视口外，开场就是一屏空白。 */
+@keyframes quoteScroll {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-50%); }
+}
+
+.quote-item {
+  padding: 0 26px;
+  margin: 0 0 46px;
+  text-align: center;
+}
+
+.quote-text {
+  margin: 0;
+  font-size: clamp(15px, 4.4vw, 21px);
+  line-height: 1.85;
+  font-weight: 500;
+  color: rgba(246, 240, 228, 0.34);
+  letter-spacing: 0.04em;
+  /* 微微的暖色描边，像旧纸张上的字 */
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+.quote-by {
+  margin: 8px 0 0;
+  font-size: clamp(11px, 3.1vw, 13px);
+  line-height: 1.6;
+  color: rgba(216, 198, 168, 0.26);
+  letter-spacing: 0.06em;
+}
+
+/* 一层渐变压暗：让中间的内容清楚，边缘的名言淡出 */
+.quote-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 78% 58% at 50% 44%,
+      rgba(34, 27, 18, 0.94) 0%,
+      rgba(34, 27, 18, 0.86) 42%,
+      rgba(34, 27, 18, 0.52) 70%,
+      rgba(34, 27, 18, 0.30) 100%),
+    linear-gradient(180deg,
+      rgba(34, 27, 18, 0.72) 0%,
+      rgba(34, 27, 18, 0.30) 22%,
+      rgba(34, 27, 18, 0.30) 78%,
+      rgba(34, 27, 18, 0.78) 100%);
+}
+
+/* ---------- 前景：成绩 ---------- */
+.win-main {
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 26px 18px calc(26px + env(safe-area-inset-bottom, 0px));
+}
+
+.win-inner {
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+}
+
+.win-kicker {
+  margin: 0 0 6px;
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: #c9a862;
+}
+
+.win-title {
+  margin: 0 0 22px;
+  font-size: clamp(24px, 7.4vw, 32px);
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  color: #fbf6ea;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- 名次 ---------- */
+.rank-box {
+  padding: 20px 16px 18px;
+  border-radius: 16px;
+  background: rgba(255, 250, 240, 0.07);
+  border: 1px solid rgba(216, 186, 130, 0.32);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.30);
+  margin-bottom: 18px;
+}
+
+.rank-label {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  color: rgba(246, 240, 228, 0.72);
+}
+
+.rank-num {
+  margin: 8px 0 8px;
+  line-height: 1;
+  color: #f0d69a;
+}
+
+.rank-num #rankNum {
+  font-size: clamp(46px, 15vw, 62px);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 16px rgba(240, 214, 154, 0.35);
+}
+
+.rank-unit {
+  margin-left: 6px;
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(240, 214, 154, 0.85);
+}
+
+.rank-sub {
+  margin: 10px 0 0;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: rgba(216, 198, 168, 0.62);
+}
+
+/* ---------- 本局成绩 ---------- */
+.win-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.win-stat {
+  padding: 11px 6px;
+  border-radius: 11px;
+  background: rgba(255, 250, 240, 0.06);
+  border: 1px solid rgba(216, 186, 130, 0.20);
+}
+
+.win-stat .ws-k {
+  display: block;
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  color: rgba(216, 198, 168, 0.66);
+  margin-bottom: 5px;
+}
+
+.win-stat .ws-v {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: #f6f0e4;
+}
+
+/* ---------- 西迁精神十六字 ---------- */
+.spirit {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
+  margin-bottom: 22px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  color: rgba(240, 214, 154, 0.88);
+}
+
+/* ---------- 按钮 ---------- */
+.win-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.win-actions .btn {
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
+}
+
+.win-ghost {
+  background: rgba(255, 250, 240, 0.08);
+  border: 1px solid rgba(216, 186, 130, 0.38);
+  color: #f0e6d2;
+  box-shadow: none;
+}
+
+.win-ghost:active {
+  background: rgba(255, 250, 240, 0.14);
+}
+
+.win-foot {
+  margin: 0;
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  color: rgba(216, 198, 168, 0.48);
+}
+
+/* ---------- 矮屏：压缩间距，保证一屏放得下 ---------- */
+@media (max-height: 700px) {
+  .win-title { margin-bottom: 14px; font-size: 22px; }
+  .rank-box { padding: 14px 12px 13px; margin-bottom: 12px; }
+  .rank-num { margin: 5px 0; }
+  .rank-num #rankNum { font-size: 42px; }
+  .win-stats { margin-bottom: 12px; }
+  .spirit { margin-bottom: 14px; gap: 4px 12px; font-size: 12px; }
+  .quote-item { margin-bottom: 34px; }
+}
+
+/* ---------- 尊重「减少动态效果」的系统设置 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .quote-track { animation: none; }
+  .quote-stage { opacity: 0.55; }
+}
