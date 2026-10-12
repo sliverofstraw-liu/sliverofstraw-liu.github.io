@@ -1281,7 +1281,7 @@ body.shaking #app { animation: screenShake 0.46s ease-out; }
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-image: url("assets/card-panel-cut.png");
+  background-image: url("assets/card-panel-cut.webp");
   background-size: 100% 100%;
   background-repeat: no-repeat;
   border-radius: 14px;
