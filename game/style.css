@@ -1281,9 +1281,26 @@ body.shaking #app { animation: screenShake 0.46s ease-out; }
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-image: url("assets/card-panel-cut.webp");
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
+  /* 两层背景（先写的在上面）：
+   *   ① card-text.webp  纸上那两行字（透明底墨迹层，出图模型写好、我们抠出来的）
+   *   ② card-panel-cut  做旧纸面
+   *
+   * ⚠️ 文字层【不能】用 100% 100% 铺满：
+   * 原图是竖版（226×603），铺到正方形棋盘上会被横向拉宽近三倍，字就毁了。
+   * 所以按【高度】缩放（auto 76%）保持原比例，宽度由比例自动算出来。
+   *
+   * ⚠️ 透明度和纸面共用（整元素的 opacity）：
+   * 这样墨迹也会被纸"吃"进去一点，看着像印在纸上，而不是浮在上面。 */
+  background-image:
+    url("assets/card-text.webp"),
+    url("assets/card-panel-cut.webp");
+  background-size:
+    auto 82%,
+    100% 100%;
+  background-position:
+    center 50%,
+    center;
+  background-repeat: no-repeat, no-repeat;
   border-radius: 14px;
   /* 透明度是关键：太实就成一块死纸，看不到木纹；
      太透牌面又会和木纹打架。0.84 实测刚好 —— 木纹隐约可见，牌面依然清楚。 */
