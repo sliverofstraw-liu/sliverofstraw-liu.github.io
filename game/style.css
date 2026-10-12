@@ -1329,51 +1329,55 @@ body.shaking #app { animation: screenShake 0.46s ease-out; }
  * 位置：换浏览器提示的下方、"怎么换"的上方。
  * 排版按「小标题 + 说明」一行一条，左对齐 —— 成段文字居中会很难读。
  * ==========================================================================*/
+/* ============================================================================
+ * 欢迎弹窗里的「游戏介绍」
+ * ----------------------------------------------------------------------------
+ * 排版按「分段短句」而不是列表：这段的目的不是讲规则，是营造氛围，
+ * 一行一条的列表会读成说明书。
+ * ==========================================================================*/
 .escape-intro {
   margin: 14px 0 14px;
-  padding: 12px 12px 10px;
+  padding: 13px 13px 11px;
   background: #f7f2e7;
   border: 1px solid rgba(150, 128, 96, 0.22);
   border-radius: 10px;
 }
 
+/* 首句：这是什么 */
 .escape-intro .ei-lead {
-  margin: 0 0 10px;
-  font-size: 13.5px;
-  line-height: 1.7;
+  margin: 0 0 11px;
+  font-size: 14px;
+  line-height: 1.6;
   color: #3b3226;
 }
-
 .escape-intro .ei-lead b {
   color: #a94a2c;
   font-weight: 700;
 }
 
-.escape-intro .ei-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.escape-intro .ei-list li {
-  position: relative;
-  margin: 0 0 8px;
-  padding-left: 2px;
-  font-size: 12.5px;
-  line-height: 1.72;
+/* 正文：历史背景与故事，缩进一点、颜色淡一点，读起来像旁白 */
+.escape-intro .ei-story {
+  margin: 0 0 9px;
+  padding-left: 9px;
+  border-left: 2px solid rgba(169, 74, 44, 0.28);
+  font-size: 13px;
+  line-height: 1.78;
   color: #5c5040;
 }
-
-.escape-intro .ei-list li:last-child {
+.escape-intro .ei-story:last-of-type {
   margin-bottom: 0;
 }
 
-.escape-intro .ei-list b {
-  display: inline-block;
-  min-width: 34px;
-  margin-right: 4px;
-  font-weight: 700;
-  color: #8a6b3f;
+/* 落款 */
+.escape-intro .ei-sign {
+  margin: 12px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid rgba(150, 128, 96, 0.22);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: right;
+  color: #8a7d69;
+  letter-spacing: 0.03em;
 }
 
 /* 矮屏上把介绍再压紧一点，尽量少滚动 */
@@ -1382,6 +1386,7 @@ body.shaking #app { animation: screenShake 0.46s ease-out; }
     margin: 10px 0;
     padding: 10px 10px 8px;
   }
-  .escape-intro .ei-lead { font-size: 12.5px; margin-bottom: 8px; }
-  .escape-intro .ei-list li { font-size: 12px; line-height: 1.6; margin-bottom: 6px; }
+  .escape-intro .ei-lead { font-size: 13px; margin-bottom: 9px; }
+  .escape-intro .ei-story { font-size: 12px; line-height: 1.68; margin-bottom: 7px; }
+  .escape-intro .ei-sign { margin-top: 10px; padding-top: 8px; font-size: 11.5px; }
 }
