@@ -1216,153 +1216,6 @@
    * 换成「纯随机贴图」之后它就露出来了（实测 150 局里有 2 局只有 118 张）。
    * 与其去猜各种参数组合，不如生成完直接【验】一遍，不合格就重来。
    * ------------------------------------------------------------------------ */
-  /* ==========================================================================
-   * 极限关卡生成器（144 张 / 8 层交错遮挡）
-   * 只有 ?level=ultra 时才走它，默认不影响任何玩家。
-   * 详细数据与口径见同目录 ../../极限关卡/说明.md
-   * ========================================================================*/
-  /*
-   * 极限关卡生成器 v1：仅替换原版 game.js 内的 generateBoard(level)。
-   * 不要作为独立 <script> 引入；依赖原版 computeBlocked(board)。
-   *
-   * 规模：144 张 / 8 层 / 12 种图案各 12 张 / 18 叠（6 列 × 3 排）。
-   * 7 个槽位和复活逻辑完全不动。
-   * 函数成功返回前同步 level.total、level.layers，让原版进度统计正确。
-   *
-   * ── 它凭什么算"极限" ──────────────────────────────────────────────
-   * ① 几何：相邻层横向错开 1.8 格（牌宽 3 格），
-   *    于是上一层的牌会同时压住「同列下层」和「邻列下层」—— 真正的交叉遮挡。
-   *    实测：除最顶层外，每张牌都被压着，平均被 5.2 张压住（原版是金字塔，浅得多）。
-   * ② 卡槽压力：这条设计路线里，
-   *      卡槽占用峰值 = 6 / 7
-   *      占用 >= 5 格的步数 = 88 / 144（61%）
-   *    也就是说路线上一多半时间卡槽都只剩 1~2 格空位，慢一步就死。
-   * ③ 首次三消在第 7 次点击，开局不给你立刻得分的甜头。
-   *
-   * ── 但它不是"一开局就必死" ────────────────────────────────────────
-   * 开局 18 张可点的牌里，有 5 种图案各出现 2 张以上、5 种能直接消，
-   * 所以玩家有得选，能按自己的想法铺路。
-   * 用 300 个"能消就消、不能消就随便点"的普通玩家做过实测：
-   *      10 步内就死的比例 = 0.0%
-   *      通关率            = 0.0%
-   *      平均清掉          = 38 / 144 张
-   * 即：随便玩会死，但不会一开局就死，而且能推进得动。会算的人照着证书那条路线能通关。
-   *
-   * 固定牌局由离线搜索产生（种子 125219）。
-   * 不声称唯一解；也不保证走错或复活后的任意分支有解。
-   */
-  /* 极限关卡开关：网址带 ?level=ultra 才启用 */
-  const ULTRA_MODE = (function () {
-    try { return /[?&]level=ultra\b/.test(location.search); } catch (e) { return false; }
-  })();
-  /* 原始规模，走原版时用来恢复（极限生成器会改写 level 上的这两个值） */
-  const LEVEL_BASE = { total: null, layers: null };
-
-  function ultraGenerateBoard(level) {
-    'use strict';
-    const TOTAL = 144;
-    const COLS = 6;
-    const ROWS = 3;
-    const LAYERS = 8;
-    const KINDS = 12;
-    const pool = level && level.tilePool;
-    if (!level || level.slots !== 7 || !Array.isArray(pool) || pool.length !== KINDS ||
-        pool.some(function (tile) { return !tile || typeof tile.id !== 'string'; }) ||
-        new Set(pool.map(function (tile) { return tile.id; })).size !== KINDS) {
-      throw new Error('极限关卡生成器需要原版 ' + KINDS + ' 种不同图案及 7 个槽位。');
-    }
-
-    // A–L 对应 tilePool[0]–tilePool[11]；顺序为【点击顺序】，即证书本身。
-    const encoded =
-      'EEACEDGGIGGHAAGIGHFIFEDBHIIEABHAIGGKGCKFAALIAEGCFCIIDFGIDEDEFKBHKCCHKCIK' +
-      'IBDFHJKKDCDHLLKBFHHJDBDLLDEKCLKJABJKJJLGCLJHFBCJJLDJJBAAHLBCAFLLEBFBFJEE';
-
-    // 可解证书：牌 ID 序列。数据直接内嵌，加载时不需要外部文件或网络。
-    const solution = [
-      142, 137, 138, 127, 141, 133, 140, 131, 130, 139, 121, 113, 135, 122, 126, 132, 128, 143,
-      136, 129, 114, 123, 108, 109, 124, 117, 118, 100, 91, 120, 103, 112, 110, 95, 106, 119,
-      77, 111, 125, 93, 105, 92, 74, 96, 134, 101, 94, 83, 90, 104, 87, 73, 115, 82,
-      97, 107, 78, 102, 88, 89, 76, 70, 116, 75, 57, 65, 47, 84, 59, 98, 58, 40,
-      41, 79, 86, 71, 53, 56, 52, 38, 99, 61, 66, 60, 39, 23, 72, 55, 21, 37,
-      81, 22, 42, 85, 69, 80, 5, 24, 67, 63, 68, 3, 49, 20, 54, 36, 19, 35,
-      64, 2, 48, 18, 46, 62, 29, 17, 0, 1, 4, 11, 30, 43, 44, 31, 12, 45,
-      27, 28, 9, 25, 50, 26, 8, 32, 51, 13, 10, 33, 6, 34, 7, 16, 15, 14
-    ];
-    if (encoded.length !== TOTAL || solution.length !== TOTAL ||
-        new Set(solution).size !== TOTAL) throw new Error('固定关卡数据不完整。');
-
-    const board = [];
-    const kindCounts = new Array(KINDS).fill(0);
-    const piles = COLS * ROWS;
-    for (let layer = 1; layer <= LAYERS; layer++) {
-      for (let pile = 0; pile < piles; pile++) {
-        const id = board.length;
-        kindCounts[encoded.charCodeAt(id) - 65]++;
-        board.push({
-          id: id,
-          z: id,
-          level: layer,
-          // 沿用原版 24×24 棋盘、3×3 牌面。
-          // 横向 6 列、列距 3.6 格；奇偶层再错开 1.8 格 → 上下层交叉遮挡。
-          // 纵向 3 排、排距 8.6 格；每四层再错开 0.9 格，避免各层完全对齐。
-          x: 0.6 + (pile % COLS) * 3.6 + (layer % 2) * 1.8,
-          y: 0.55 + Math.floor(pile / COLS) * 8.6 + (layer % 4) * 0.9,
-          kind: pool[(encoded.charCodeAt(id) - 65)].id,
-          blockedBy: [],
-          inSlot: false
-        });
-      }
-    }
-    if (kindCounts.some(function (n) { return n !== TOTAL / KINDS; })) {
-      throw new Error('每种图案必须恰好 ' + (TOTAL / KINDS) + ' 张。');
-    }
-    computeBlocked(board);
-
-    // 用原游戏的真实遮挡数据把证书重放一遍。
-    const alive = new Set(board.map(function (tile) { return tile.id; }));
-    const held = new Map();
-    let occupancy = 0;
-    let peak = 0;
-    let pressureSteps = 0;
-    let firstMatch = 0;
-    for (let step = 0; step < solution.length; step++) {
-      const tile = board[solution[step]];
-      if (!tile || !alive.has(tile.id) || tile.blockedBy.some(function (id) { return alive.has(id); })) {
-        throw new Error('通关证书第 ' + (step + 1) + ' 步无效或被遮挡。');
-      }
-      alive.delete(tile.id);
-      let count = (held.get(tile.kind) || 0) + 1;
-      occupancy++;
-      // 与原版一致：先三消、再检查是否占满 7 格。
-      if (count === 3) {
-        count = 0;
-        occupancy -= 3;
-        if (firstMatch === 0) firstMatch = step + 1;
-      }
-      held.set(tile.kind, count);
-      if (occupancy >= 7) throw new Error('通关证书第 ' + (step + 1) + ' 步爆槽。');
-      peak = Math.max(peak, occupancy);
-      if (occupancy >= 5) pressureSteps++;
-    }
-    if (alive.size || occupancy) throw new Error('通关证书没能把牌清空。');
-
-    // 只同步生成数量相关的配置。槽位、复活次数和移出张数均保持传入值。
-    level.total = TOTAL;
-    level.layers = LAYERS;
-    board.encode = 'solvable';
-    board.mode = 'ultra';
-    board.solveGuaranteed = true;
-    board.dealPeak = peak;
-    board.dealRevives = 0;
-    board.opening = board.filter(function (tile) { return tile.blockedBy.length === 0; }).length;
-    board.quota = new Array(LAYERS).fill(piles);
-    board.fixedSeed = 125219;
-    board.firstMatchClicks = firstMatch;
-    board.pressureSteps = pressureSteps;
-    board.solution = solution;
-    return board;
-  }
-
   function generateBoard(level) {
     let board = null;
     for (let attempt = 0; attempt < 6; attempt++) {
@@ -2303,7 +2156,7 @@
   /* 构建版本号 —— 用来判断浏览器加载的是不是最新代码。
    * 手机上缓存很顽固，出现「行为和预期不一致」时先看这个号。
    * 打开 ?debug=1 会把它显示在页面顶部。 */
-  const BUILD = '2026-10-11-23';
+  const BUILD = '2026-10-11-24';
 
   function findTileConfig(kindId) {
     for (let i = 0; i < TILES.length; i++) {
@@ -2976,20 +2829,7 @@
     game.reviveUsed = 0;          // 本局计数清零，这一局重新开始数
 
     // 1) 生成牌堆（洗牌后随机贴图案）
-    /* 极限关卡会改写 level.total / level.layers（144 / 8）。
-     * LEVELS[0] 是全局配置，改了一直留着 ——
-     * 所以走原版前必须【先把原始值恢复】，否则这一局会拿着 8 层去摆 144 张。 */
-    if (LEVEL_BASE.total === null) {
-      LEVEL_BASE.total = game.level.total;
-      LEVEL_BASE.layers = game.level.layers;
-    }
-    if (ULTRA_MODE) {
-      game.board = ultraGenerateBoard(game.level);
-    } else {
-      game.level.total = LEVEL_BASE.total;
-      game.level.layers = LEVEL_BASE.layers;
-      game.board = generateBoard(game.level);
-    }
+    game.board = generateBoard(game.level);
 
     // 2) 生成时就把「压住我的牌」名单算好
     computeBlocked(game.board);
