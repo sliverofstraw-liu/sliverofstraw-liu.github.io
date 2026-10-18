@@ -1,0 +1,87 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>哥特水渠 · 3D 模型</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1210; }
+  body { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; color: #f3ddcc; }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  .hud { position: fixed; left: 20px; top: 18px; z-index: 10; max-width: min(520px, 70vw); }
+  .title { font-size: 15px; letter-spacing: .12em; text-transform: uppercase; color: #e8c3a6; }
+  .sub { font-size: 12px; color: #b08a74; margin-top: 4px; }
+
+  .bar { position: fixed; left: 20px; bottom: 18px; z-index: 10; display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    appearance: none; border: 1px solid #6b4438; background: rgba(34, 20, 16, .78);
+    color: #f0d4c0; padding: 8px 12px; border-radius: 6px; font: inherit; font-size: 13px;
+    cursor: pointer; backdrop-filter: blur(6px); transition: .15s ease;
+  }
+  button:hover { border-color: #c98c68; background: rgba(70, 40, 30, .88); }
+  button.active { border-color: #f0b083; color: #ffd9b8; background: rgba(104, 55, 36, .9); }
+
+  .hint { position: fixed; right: 20px; bottom: 20px; z-index: 10; font-size: 12px; color: #a9826d; text-align: right; line-height: 1.6; }
+
+  #loading {
+    position: fixed; inset: 0; z-index: 20; display: grid; place-items: center;
+    background: radial-gradient(circle at 50% 40%, #2a1913, #140c09 70%);
+    transition: opacity .6s ease;
+  }
+  #loading.hide { opacity: 0; pointer-events: none; }
+  .loadbox { width: min(360px, 70vw); text-align: center; }
+  .loadtitle { font-size: 13px; letter-spacing: .18em; color: #d9b499; margin-bottom: 14px; }
+  .track { height: 3px; background: #3a241c; border-radius: 2px; overflow: hidden; }
+  #fill { height: 100%; width: 0%; background: linear-gradient(90deg, #b56b45, #ffc79b); transition: width .2s; }
+  #pct { margin-top: 10px; font-size: 12px; color: #a9826d; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div class="hud">
+  <div class="title">Gothic Aqueduct · 3D Model</div>
+  <div class="sub">悬崖大教堂 · 程序化重建 · 约 15.4 万面</div>
+</div>
+
+<div class="bar">
+  <button data-view="A" class="active">机位 A · 大厅</button>
+  <button data-view="B">机位 B · 3/4</button>
+  <button data-view="in">室内 · 反向</button>
+  <button data-view="ext">东立面</button>
+  <button data-view="over">总览</button>
+  <button id="wire">线框</button>
+  <button id="spin">自动旋转</button>
+  <button id="reset">重置</button>
+</div>
+
+<div class="hint">左键旋转 · 右键平移 · 滚轮缩放<br/>快捷键 1 / 2 / 3 切换机位</div>
+
+<div id="loading">
+  <div class="loadbox">
+    <div class="loadtitle">LOADING MODEL</div>
+    <div class="track"><div id="fill"></div></div>
+    <div id="pct">0%</div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js",
+    "three/addons/": "./vendor/addons/"
+  }
+}
+</script>
+<script type="module" src="./main.js?v=9"></script>
+</body>
+</html>
+
+
+
+
+
