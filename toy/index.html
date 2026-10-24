@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>玩偶突围</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    margin:0;min-height:100vh;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:14px;padding:24px;
+    background:#f4f7fa;color:#1b2733;
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  }
+  .top{width:min(92vw,560px);display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .status{font-size:14px;color:#5d6d7e;letter-spacing:.4px}
+  .status.win{color:#1b2733;font-weight:600}
+  button{
+    font-family:inherit;cursor:pointer;border:1px solid #dfe7ee;background:#fff;
+    color:#5d6d7e;font-size:12.5px;padding:6px 10px;border-radius:9px;
+  }
+  button:hover{color:#1b2733;border-color:#c6d5e2}
+  button:disabled{opacity:.35;cursor:default;border-color:#dfe7ee;color:#5d6d7e}
+  button.on{background:#0f6fc0;border-color:#0f6fc0;color:#fff}
+  .acts{display:flex;gap:6px}
+  svg{width:min(92vw,560px);height:auto;display:block}
+  .cell{cursor:default}
+  .cell polygon{transition:fill .14s}
+  .cell.placeable,.cell.hintable{cursor:pointer}
+  .cell.placeable:hover polygon{fill:#7ab4ea}
+  .cell.hintable:hover polygon{fill:#7ab4ea}
+  .toy{font-size:27px;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+  @keyframes blip{from{opacity:.85;transform:scale(.55)}to{opacity:0;transform:scale(1.3)}}
+  .blip{animation:blip .55s ease-out forwards;transform-box:fill-box;transform-origin:center}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <span class="status" id="status"></span>
+  <span class="acts">
+    <button id="modePve" class="on">人机</button>
+    <button id="modePvp">双人</button>
+    <button id="undo">悔棋</button>
+    <button id="reset">重开</button>
+  </span>
+</div>
+<svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+
+<script>
+/*__ENGINE_START__*/
+/* 9 行：偶数行 9 格、奇数行 8 格（向右缩进半格）。
+   '.' 是地垫上没有格子的空区域，不画、不可落子、不可通行。
+   Y=黄区（玩偶目标） B=蓝格 R=玩偶起点 */
+var BOARD = [
+  'YYYYYYYYY',
+  '.BBBBBBBB.',
+  'YBBBBBBBY',
+  '.BBBBBBBB.',
+  'YBBBRBBBY',
+  '.BBBBBBBB.',
+  'YBBBBBBBY',
+  '.BBBBBBBB.',
+  'YYYYYYYYY'
+];
+var TOY_START = { r: 4, k: 4 };
+var DEPLOY = 5;              /* 开局布阵枚数 */
+
+function cellAt(r, k) {
+  if (r < 0 || r >= BOARD.length) return null;
+  var row = BOARD[r];
+  if (k < 0 || k >= row.length) return null;
+  var c = row.charAt(k);
+  return c === '.' ? null : c;
+}
+function isGoal(r, k) { return cellAt(r, k) === 'Y'; }
+function isOpen(r, k) {
+  var c = cellAt(r, k);
+  return c === 'B' || c === 'Y';
+}
+function key(r, k) { return r + ':' + k; }
+
+/* 六邻域：同行左右各一；上下两行各两格（奇数行错开半格） */
+function neighbors(r, k) {
+  var out = [[r, k - 1], [r, k + 1]];
+  if (r % 2 === 0) out.push([r - 1, k], [r - 1, k + 1], [r + 1, k], [r + 1, k + 1]);
+  else out.push([r - 1, k - 1], [r - 1, k], [r + 1, k - 1], [r + 1, k]);
+  return out.filter(function (p) { return cellAt(p[0], p[1]) !== null; });
+}
+
+function newGame() {
+  return {
+    phase: 'deploy',          /* deploy=开局布阵，玩偶不动 */
+    turn: 'stone',
+    stones: [],
+    toy: { r: TOY_START.r, k: TOY_START.k },
+    left: DEPLOY,
+    winner: null
+  };
+}
+function deploying(st) { return st.phase === 'deploy'; }
+function stoneMap(st) {
+  var m = {};
+  for (var i = 0; i < st.stones.length; i++) m[key(st.stones[i].r, st.stones[i].k)] = true;
+  return m;
+}
+
+function canPlace(st, r, k) {
+  if (st.winner || st.turn !== 'stone') return false;
+  if (!isOpen(r, k)) return false;
+  if (st.toy.r === r && st.toy.k === k) return false;
+  return !stoneMap(st)[key(r, k)];
+}
+function place(st, r, k) {
+  if (!canPlace(st, r, k)) return false;
+  st.stones.push({ r: r, k: k });
+  if (cutOff(st)) { st.winner = 'stone'; return true; }
+  if (st.phase === 'deploy') {
+    st.left--;
+    if (st.left === 0) { st.phase = 'play'; st.turn = 'toy'; }
+    return true;
+  }
+  st.turn = 'toy';
+  return true;
+}
+
+function canMoveToy(st, r, k) {
+  if (st.winner || st.turn !== 'toy') return false;
+  if (cellAt(r, k) === null) return false;
+  if (stoneMap(st)[key(r, k)]) return false;
+  var ns = neighbors(st.toy.r, st.toy.k);
+  for (var i = 0; i < ns.length; i++) if (ns[i][0] === r && ns[i][1] === k) return true;
+  return false;
+}
+function moveToy(st, r, k) {
+  if (!canMoveToy(st, r, k)) return false;
+  st.toy = { r: r, k: k };
+  if (isGoal(r, k)) { st.winner = 'toy'; return true; }
+  if (cutOff(st)) { st.winner = 'stone'; return true; }
+  st.turn = 'stone';
+  return true;
+}
+
+/* 玩偶可达格子（不含棋子） */
+function reachable(st) {
+  var m = stoneMap(st), seen = {}, q = [[st.toy.r, st.toy.k]];
+  seen[key(st.toy.r, st.toy.k)] = true;
+  while (q.length) {
+    var cur = q.shift(), ns = neighbors(cur[0], cur[1]);
+    for (var i = 0; i < ns.length; i++) {
+      var kk = key(ns[i][0], ns[i][1]);
+      if (seen[kk] || m[kk]) continue;
+      seen[kk] = true;
+      q.push([ns[i][0], ns[i][1]]);
+    }
+  }
+  return seen;
+}
+function goalReachable(st) {
+  var rr = reachable(st);
+  for (var r = 0; r < BOARD.length; r++)
+    for (var k = 0; k < BOARD[r].length; k++)
+      if (BOARD[r].charAt(k) === 'Y' && rr[key(r, k)]) return true;
+  return false;
+}
+function cutOff(st) { return !goalReachable(st); }
+
+/* 玩偶到最近黄格的步数（不可达返回 Infinity） */
+function distToGoal(st) {
+  var m = stoneMap(st), seen = {}, q = [[st.toy.r, st.toy.k, 0]];
+  seen[key(st.toy.r, st.toy.k)] = true;
+  while (q.length) {
+    var cur = q.shift(), r = cur[0], k = cur[1], d = cur[2];
+    if (isGoal(r, k)) return d;
+    var ns = neighbors(r, k);
+    for (var i = 0; i < ns.length; i++) {
+      var kk = key(ns[i][0], ns[i][1]);
+      if (seen[kk] || m[kk]) continue;
+      seen[kk] = true;
+      q.push([ns[i][0], ns[i][1], d + 1]);
+    }
+  }
+  return Infinity;
+}
+/*__ENGINE_END__*/
+
+/* ---------- AI：玩偶方 ----------
+   判定依据是点连通度（Menger 定理），不是打分估算。
+
+   从玩偶下一步的落点出发，数一数有几条"互不共用格子"的路线能走到黄区，记作 λ。
+   对手每回合只能落一枚棋子，一枚棋子最多掐断其中一条路线。
+   落点到黄区还要走 d 步，这期间对手只有 d-1 次落子机会。
+   所以只要 λ ≥ d，无论对手把棋子摆在哪，总有一条路线是完整的 —— 数学上必胜。
+
+   在满足 λ ≥ d 的走法里挑 d 最小的（最快到达），d 相同再挑 λ 最大的（最稳）。 */
+
+var CELLS = 82, FLOW_N = CELLS * 2 + 2, F_S = CELLS * 2, F_T = CELLS * 2 + 1;
+var aAdj = [], aOpen = [], aGoal = [], aIsGoal = new Uint8Array(CELLS);
+
+(function () {
+  var r, k, i;
+  for (r = 0; r < BOARD.length; r++) {
+    for (k = 0; k < BOARD[r].length; k++) {
+      if (cellAt(r, k) === null) continue;
+      i = r * 9 + k;
+      aOpen.push(i);
+      if (cellAt(r, k) === 'Y') { aGoal.push(i); aIsGoal[i] = 1; }
+    }
+  }
+  for (r = 0; r < BOARD.length; r++) {
+    for (k = 0; k < BOARD[r].length; k++) {
+      if (cellAt(r, k) === null) continue;
+      var ns = neighbors(r, k), list = [];
+      for (i = 0; i < ns.length; i++) list.push(ns[i][0] * 9 + ns[i][1]);
+      aAdj[r * 9 + k] = list;
+    }
+  }
+})();
+
+/* 从 start 出发到黄区的点不相交路线数。
+   每格拆成"入口→出口"两半、中间容量 1，走一次就占掉；start 和终点不受此限。 */
+function aFlow(occ, start) {
+  var to = [], cap = [], head = [], i, j, u, v, e;
+  for (i = 0; i < FLOW_N; i++) head.push([]);
+  function add(a, b, c) {
+    head[a].push(to.length); to.push(b); cap.push(c);
+    head[b].push(to.length); to.push(a); cap.push(0);
+  }
+  for (j = 0; j < aOpen.length; j++) {
+    u = aOpen[j];
+    if (occ[u]) { add(u * 2, u * 2 + 1, 0); continue; }
+    add(u * 2, u * 2 + 1, (u === start || aIsGoal[u]) ? 1e9 : 1);
+  }
+  for (j = 0; j < aOpen.length; j++) {
+    u = aOpen[j];
+    if (occ[u]) continue;
+    var list = aAdj[u];
+    for (i = 0; i < list.length; i++) {
+      v = list[i];
+      if (v < u || occ[v]) continue;
+      add(u * 2 + 1, v * 2, 1e9);
+      add(v * 2 + 1, u * 2, 1e9);
+    }
+  }
+  for (j = 0; j < aGoal.length; j++) if (!occ[aGoal[j]]) add(aGoal[j] * 2 + 1, F_T, 1e9);
+  add(F_S, start * 2, 1e9);
+
+  var level = new Int32Array(FLOW_N), it = new Int32Array(FLOW_N), q = new Int32Array(FLOW_N);
+  var total = 0, h, t, hs, f2;
+
+  function dfs(x, f) {
+    if (x === F_T) return f;
+    var hx = head[x];
+    for (; it[x] < hx.length; it[x]++) {
+      var ee = hx[it[x]], vv = to[ee];
+      if (cap[ee] <= 0 || level[vv] !== level[x] + 1) continue;
+      var d = dfs(vv, Math.min(f, cap[ee]));
+      if (d > 0) { cap[ee] -= d; cap[ee ^ 1] += d; return d; }
+    }
+    return 0;
+  }
+
+  for (;;) {
+    level.fill(-1); level[F_S] = 0;
+    h = 0; t = 0; q[t++] = F_S;
+    while (h < t) {
+      u = q[h++];
+      hs = head[u];
+      for (i = 0; i < hs.length; i++) {
+        e = hs[i]; v = to[e];
+        if (cap[e] > 0 && level[v] < 0) { level[v] = level[u] + 1; q[t++] = v; }
+      }
+    }
+    if (level[F_T] < 0) break;
+    it.fill(0);
+    while ((f2 = dfs(F_S, 1e9)) > 0) total += f2;
+  }
+  return total;
+}
+
+/* 到黄区的步数（被围死返回 Infinity） */
+var aDep = new Int16Array(CELLS), aStamp = new Int32Array(CELLS),
+  aQueue = new Int32Array(CELLS), aCS = 0;
+
+function aBfs(occ, toy) {
+  aCS++;
+  var h = 0, t = 0, dist = Infinity, i;
+  aQueue[t++] = toy; aDep[toy] = 0; aStamp[toy] = aCS;
+  while (h < t) {
+    var u = aQueue[h++], d = aDep[u], list = aAdj[u];
+    if (aIsGoal[u] && d < dist) dist = d;
+    for (i = 0; i < list.length; i++) {
+      var v = list[i];
+      if (aStamp[v] === aCS || occ[v]) continue;
+      aStamp[v] = aCS; aDep[v] = d + 1; aQueue[t++] = v;
+    }
+  }
+  return dist;
+}
+
+function bestToyMove(st) {
+  var occ = new Uint8Array(CELLS), i, j;
+  for (i = 0; i < st.stones.length; i++) occ[st.stones[i].r * 9 + st.stones[i].k] = 1;
+  var t = st.toy.r * 9 + st.toy.k, ns = aAdj[t], cands = [];
+
+  for (j = 0; j < ns.length; j++) {
+    var m = ns[j];
+    if (occ[m]) continue;
+    if (aIsGoal[m]) return [Math.floor(m / 9), m % 9];      /* 一步到，直接赢 */
+    var lam = aFlow(occ, m);
+    var dm = aBfs(occ, m);
+    cands.push({ m: m, lam: lam, d: dm === Infinity ? 999 : dm });
+  }
+  if (!cands.length) return null;
+
+  cands.sort(function (a, b) { return (a.d - b.d) || (b.lam - a.lam); });
+
+  var pick = null;
+  for (i = 0; i < cands.length; i++) {
+    if (cands[i].lam >= cands[i].d) { pick = cands[i]; break; }   /* 有必胜保证的 */
+  }
+  if (!pick) pick = cands[0];        /* 被围死时保底：走最宽的那条路 */
+  return [Math.floor(pick.m / 9), pick.m % 9];
+}
+
+/* ---------- 几何 ---------- */
+var HH = 33.6, HW = Math.sqrt(3) * HH / 2;
+var COL = 66, ROW = 57, OX = 37, OY = 8;
+
+function cxOf(r, k) { return (r % 2 === 0 ? OX + HW : OX - 33 + HW) + COL * k; }
+function cyOf(r) { return OY + HH + ROW * r; }
+function hexPoints(cx, cy) {
+  var pts = [], i, a;
+  for (i = 0; i < 6; i++) {
+    a = Math.PI / 180 * (60 * i - 90);
+    pts.push((cx + HW * Math.cos(a)).toFixed(2) + ',' + (cy + HH * Math.sin(a)).toFixed(2));
+  }
+  return pts.join(' ');
+}
+
+/* ---------- 界面 ---------- */
+var SVGNS = 'http://www.w3.org/2000/svg';
+var boardEl = document.getElementById('board');
+var statusEl = document.getElementById('status');
+var undoEl = document.getElementById('undo');
+var COLOR = { Y: '#f7c642', B: '#5594de', R: '#cd2d37' };
+
+var game = newGame();
+
+function el(name, attrs) {
+  var n = document.createElementNS(SVGNS, name);
+  for (var a in attrs) if (attrs.hasOwnProperty(a)) n.setAttribute(a, attrs[a]);
+  return n;
+}
+
+function render() {
+  boardEl.innerHTML = '';
+
+  var s = stoneMap(game);
+  var minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+
+  /* 玩偶这边由人来走时（双人模式），亮出能走的相邻格 */
+  var moves = {};
+  if (toyIsHuman() && game.turn === 'toy' && !game.winner) {
+    var tns = neighbors(game.toy.r, game.toy.k);
+    for (var q = 0; q < tns.length; q++) {
+      if (!s[key(tns[q][0], tns[q][1])]) moves[key(tns[q][0], tns[q][1])] = true;
+    }
+  }
+
+  for (var r = 0; r < BOARD.length; r++) {
+    for (var k = 0; k < BOARD[r].length; k++) {
+      var ch = cellAt(r, k);
+      if (ch === null) continue;
+      var cx = cxOf(r, k), cy = cyOf(r);
+      if (cx - HW < minX) minX = cx - HW;
+      if (cx + HW > maxX) maxX = cx + HW;
+      if (cy - HH < minY) minY = cy - HH;
+      if (cy + HH > maxY) maxY = cy + HH;
+
+      var cls = 'cell';
+      if (moves[key(r, k)]) cls += ' hintable';
+      else if (!game.winner && game.turn === 'stone' && canPlace(game, r, k)) cls += ' placeable';
+
+      var g = el('g', { 'class': cls, 'data-r': r, 'data-k': k });
+      g.appendChild(el('polygon', {
+        points: hexPoints(cx, cy),
+        fill: COLOR[ch] || '#5594de',
+        stroke: '#eef5f8',
+        'stroke-width': 1.6,
+        'stroke-linejoin': 'round'
+      }));
+
+      if (moves[key(r, k)])
+        g.appendChild(el('circle', { cx: cx, cy: cy, r: 5.5, fill: '#ffffff', opacity: .85 }));
+
+      if (s[key(r, k)]) {
+        g.appendChild(el('circle', { cx: cx, cy: cy, r: 13.5, fill: '#33445a' }));
+        g.appendChild(el('circle', { cx: cx, cy: cy - 3.2, r: 4.6, fill: '#fff', opacity: .16 }));
+      }
+
+      if (game.toy.r === r && game.toy.k === k) {
+        if (justMoved) {
+          g.appendChild(el('circle', {
+            cx: cx, cy: cy, r: 16, fill: 'none',
+            stroke: '#ffffff', 'stroke-width': 3, 'class': 'blip'
+          }));
+        }
+        var t = el('text', { x: cx, y: cy + 1, 'class': 'toy' });
+        t.textContent = '🐯';
+        g.appendChild(t);
+      }
+
+      g.addEventListener('click', onCell);
+      boardEl.appendChild(g);
+    }
+  }
+
+  var PAD = 7;
+  boardEl.setAttribute('viewBox',
+    (minX - PAD).toFixed(1) + ' ' + (minY - PAD).toFixed(1) + ' ' +
+    (maxX - minX + PAD * 2).toFixed(1) + ' ' + (maxY - minY + PAD * 2).toFixed(1));
+
+  if (game.winner) {
+    statusEl.textContent = game.winner === 'toy' ? '玩偶突围成功' : '棋子封死了通路';
+    statusEl.className = 'status win';
+  } else {
+    statusEl.className = 'status';
+    if (game.turn === 'stone') {
+      statusEl.textContent = deploying(game)
+        ? '棋子布阵 · 还差 ' + game.left + ' 枚'
+        : (mode === 'pvp' ? '棋子方落子' : '你落子');
+    } else {
+      statusEl.textContent = mode === 'pvp' ? '玩偶方走一格' : '玩偶思考中';
+    }
+  }
+
+  undoEl.disabled = aiBusy || undoStack.length === 0;
+}
+
+var mode = 'pve';            /* pve=你执棋子打 AI 玩偶；pvp=两人轮流 */
+var aiBusy = false;
+function toyIsHuman() { return mode === 'pvp'; }
+function humanTurn() { return game.turn === 'stone' || toyIsHuman(); }
+var justMoved = false;
+var undoStack = [];          /* 每次玩家行动前存一份局面，悔棋时整步退回 */
+
+function snapshot(st) {
+  return {
+    phase: st.phase, turn: st.turn, left: st.left, winner: st.winner,
+    stones: st.stones.map(function (p) { return { r: p.r, k: p.k }; }),
+    toy: { r: st.toy.r, k: st.toy.k }
+  };
+}
+
+/* AI 只在人机模式里执玩偶走一步 */
+function aiTurn() {
+  if (mode !== 'pve' || aiBusy || game.winner || game.turn !== 'toy') return;
+  aiBusy = true;
+  render();
+  setTimeout(function () {
+    var mv = bestToyMove(game);
+    if (mv) { moveToy(game, mv[0], mv[1]); justMoved = true; }
+    aiBusy = false;
+    render();
+  }, 200);
+}
+
+function onCell(e) {
+  var g = e.currentTarget;
+  var r = +g.getAttribute('data-r'), k = +g.getAttribute('data-k');
+  if (aiBusy || game.winner || !humanTurn()) return;
+
+  undoStack.push(snapshot(game));
+  var ok = (game.turn === 'toy') ? moveToy(game, r, k) : place(game, r, k);
+  if (!ok) { undoStack.pop(); return; }
+
+  justMoved = false;
+  render();
+  aiTurn();
+}
+
+function undo() {
+  if (aiBusy || !undoStack.length) return;
+  game = undoStack.pop();        /* 退回自己上一步之前，AI 的应手一并撤掉 */
+  justMoved = false;
+  render();
+}
+
+function restart() {
+  aiBusy = false;
+  justMoved = false;
+  undoStack = [];
+  game = newGame();
+  render();
+  aiTurn();
+}
+
+function syncMode() {
+  document.getElementById('modePve').classList.toggle('on', mode === 'pve');
+  document.getElementById('modePvp').classList.toggle('on', mode === 'pvp');
+}
+
+function setMode(m) {
+  if (mode === m) return;
+  mode = m;
+  syncMode();
+  restart();
+}
+
+document.getElementById('modePve').addEventListener('click', function () { setMode('pve'); });
+document.getElementById('modePvp').addEventListener('click', function () { setMode('pvp'); });
+document.getElementById('undo').addEventListener('click', undo);
+document.getElementById('reset').addEventListener('click', restart);
+
+syncMode();
+restart();
+</script>
+</body>
+</html>
